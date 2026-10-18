@@ -151,3 +151,14 @@ body[data-tab="info"] header .controls, body[data-tab="set"] header .controls { 
 
 .cau { color: #b7791f; font-size: 13px; }
 .cauBox { background: #fff8e1; border-left: 4px solid #f39c12; padding: 7px 9px; border-radius: 6px; font-size: 13.5px; margin: 8px 0; }
+
+/* 회화 카드 */
+body[data-tab="talk"] header .controls { display: none; }
+.pcat { font-weight: 700; margin: 14px 10px 4px; color: #c0392b; }
+#phraseList { padding: 0 8px; }
+.phr { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; background: #fff; border: 0; border-radius: 10px; padding: 12px; margin: 5px 0; box-shadow: 0 1px 2px rgba(0,0,0,.06); font-size: 15px; }
+.phr .pk { font-weight: 700; } .phr .pz { color: #555; font-size: 15px; }
+#tab-talk textarea { width: 100%; font-size: 16px; padding: 9px; border: 1px solid #ccc; border-radius: 8px; margin-top: 8px; }
+.taxi .pron { font-size: 20px; color: #1a5fb4; margin: 14px 0 4px; }
+.taxi .kor { font-size: 18px; color: #555; margin: 0 0 18px; }
+@media (min-width: 700px) { #phraseList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; padding: 0 16px; } .pcat { grid-column: 1 / -1; } }

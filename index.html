@@ -9,8 +9,8 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="lib/leaflet.css?v=20261018k">
-<link rel="stylesheet" href="style.css?v=20261018k">
+<link rel="stylesheet" href="lib/leaflet.css?v=20261018p">
+<link rel="stylesheet" href="style.css?v=20261018p">
 </head>
 <body>
 <header id="top">
@@ -41,6 +41,21 @@
   <!-- 지도 -->
   <section id="tab-map" class="tab"><div id="map"></div><div id="gmap" class="hidden"></div><button id="mapSwitch" class="mapsw">🇰🇷 구글 지도로 보기</button><button id="locBtn" class="fab">◎</button></section>
 
+
+  <!-- 회화 -->
+  <section id="tab-talk" class="tab">
+    <h2>🗣 회화 카드</h2>
+    <p class="hint" style="margin:0 10px">문장을 누르면 큰 글씨로 보여줘요. 점원·기사님께 화면을 보여주세요.</p>
+    <div id="phraseList"></div>
+    <div class="card">
+      <b>✍ 직접 쓰기 (한국어 → 중국어)</b>
+      <textarea id="koText" rows="3" placeholder="예: 이 메뉴에 고기가 들어가나요?"></textarea>
+      <button class="btn green" id="papagoBtn">파파고로 번역하기</button>
+      <p class="hint">파파고 화면이 열리면서 바로 번역돼요(대만식 번체). 결과를 복사해 아래에 붙여넣고 [크게 보기]를 누르면 큰 글씨로 보여줄 수 있어요.</p>
+      <textarea id="zhText" rows="2" placeholder="번역된 중국어 붙여넣기"></textarea>
+      <button class="btn dark" id="bigBtn">🔍 크게 보기</button>
+    </div>
+  </section>
 
   <!-- 정보 -->
   <section id="tab-info" class="tab"><div id="info">불러오는 중…</div></section>
@@ -93,6 +108,7 @@
 <nav id="tabs">
   <button data-tab="near" class="on">🧭<span>근처</span></button>
   <button data-tab="map">🗺<span>지도</span></button>
+  <button data-tab="talk">🗣<span>회화</span></button>
   <button data-tab="info">ℹ️<span>정보</span></button>
   <button data-tab="set">⚙️<span>설정</span></button>
 </nav>
@@ -101,9 +117,10 @@
 <div id="taxi" class="taxi hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script src="lib/leaflet.js?v=20261018k"></script>
-<script src="config.js?v=20261018k"></script>
-<script src="data.js?v=20261018k"></script>
-<script src="app.js?v=20261018k"></script>
+<script src="lib/leaflet.js?v=20261018p"></script>
+<script src="config.js?v=20261018p"></script>
+<script src="phrases.js?v=20261018p"></script>
+<script src="data.js?v=20261018p"></script>
+<script src="app.js?v=20261018p"></script>
 </body>
 </html>

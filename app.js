@@ -341,10 +341,11 @@
     drawMe();
     checkNearby();
     if (activeTab === 'near') renderList();
+    if (activeTab === 'map') drawMe();
   }
   function getPos(ask) {
     if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(onPos, err => { if (ask) toast('위치를 가져오지 못했어요. 휴대폰 위치(GPS)와 브라우저 위치 권한을 확인해 주세요.'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    navigator.geolocation.getCurrentPosition(onPos, err => { if (ask) toast('위치를 가져오지 못했어요. 휴대폰 위치(GPS)와 브라우저 위치 권한을 확인해 주세요.'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 20000 });
   }
 
   // ---------- 근처 알림 ----------
@@ -415,6 +416,7 @@
     $$('.tab').forEach(s => s.classList.toggle('on', s.id === 'tab-' + t));
     if (t === 'near') renderList();
     if (t === 'map') { renderMap(); }
+    if (t === 'near' || t === 'map') getPos(false);
     if (t === 'info') loadInfo();
     if (t === 'set') updatePerm();
     window.scrollTo(0, 0);
@@ -450,7 +452,7 @@
 
   // 글씨 크기: 지도는 그대로 두고 목록·카드·정보·설정 화면만 확대
   function applyZoom() {
-    ['#top', '#tab-near', '#tab-info', '#tab-set', '#sheetIn', '#toast'].forEach(s => { const el = $(s); if (el) el.style.zoom = S.zoom; });
+    ['#top', '#tab-near', '#tab-talk', '#tab-info', '#tab-set', '#sheetIn', '#toast'].forEach(s => { const el = $(s); if (el) el.style.zoom = S.zoom; });
     $$('#fontSeg button').forEach(b => b.classList.toggle('on', Number(b.dataset.z) === Number(S.zoom)));
   }
   // 지도 종류·주변 가게 표시: 바꾸면 새로 불러오기
@@ -464,13 +466,25 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261018k').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261018p').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
+  // 회화 카드: 문장을 누르면 큰 글씨, 직접 쓴 한국어는 파파고·구글 번역으로 연결
+  function showBig(zh, ko, pron) {
+    $('#taxi').innerHTML = `<div class="big">${esc(zh)}</div>${pron ? `<p class="pron">${esc(pron)}</p>` : ''}${ko ? `<p class="kor">${esc(ko)}</p>` : ''}<button class="btn gray" style="max-width:240px">닫기</button>`;
+    $('#taxi').classList.remove('hidden');
+  }
+  $('#phraseList').innerHTML = Object.entries(window.PHRASES || {}).map(([cat, L]) =>
+    `<div class="pcat">${esc(cat)}</div>` + L.map(([ko, zh, pr]) => `<button class="phr" data-zh="${esc(zh)}" data-ko="${esc(ko)}" data-pr="${esc(pr)}"><span class="pk">${esc(ko)}</span><span class="pz">${esc(zh)}</span></button>`).join('')).join('');
+  $('#phraseList').addEventListener('click', e => { const b = e.target.closest('.phr'); if (b) showBig(b.dataset.zh, b.dataset.ko, b.dataset.pr); });
+  $('#papagoBtn').addEventListener('click', () => { const t = $('#koText').value.trim(); if (!t) return toast('번역할 한국어를 먼저 써 주세요.'); window.open('https://papago.naver.com/?sk=ko&tk=zh-TW&st=' + encodeURIComponent(t), '_blank'); });
+  $('#bigBtn').addEventListener('click', () => { const z = $('#zhText').value.trim(); if (!z) return toast('번역된 중국어를 붙여넣어 주세요.'); showBig(z, $('#koText').value.trim(), ''); });
+
   // 시계
   function tick() { const t = twNow(); $('#clock').textContent = (S.when === 'now' ? '대만 ' : '기준 ') + DAYK[t.day] + ' ' + hm(t.min); }
-  setInterval(() => { tick(); if (S.when === 'now' && activeTab === 'near') renderList(); }, 60000);
+  setInterval(() => { tick(); if (document.visibilityState === 'visible' && (activeTab === 'near' || activeTab === 'map')) getPos(false); if (S.when === 'now' && activeTab === 'near') renderList(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') getPos(false); });
 
   // 서비스워커: 오프라인 사용 + 알림 클릭 처리
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
