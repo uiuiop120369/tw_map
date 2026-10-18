@@ -164,10 +164,10 @@ body[data-tab="talk"] header .controls { display: none; }
 @media (min-width: 700px) { #phraseList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; padding: 0 16px; } .pcat { grid-column: 1 / -1; } }
 
 /* 상단 여백: 회화·정보·설정 화면은 버튼 영역이 없어서 제목이 머리 부분에 붙지 않게 */
-#tab-talk, #tab-set { padding-top: 12px; }
-#tab-info { padding-top: 6px; }
-#tab-talk > h2, #tab-set > h2 { margin-top: 4px; }
-#tab-talk .hint { margin-bottom: 4px; }
+#tab-talk, #tab-set { padding-top: 20px; }
+#tab-info { padding-top: 12px; }
+#tab-talk > h2, #tab-set > h2 { margin-top: 0; font-size: 19px; }
+#tab-talk > .hint { margin: 2px 10px 8px !important; padding-bottom: 12px; border-bottom: 1px solid #e3e3e3; }
 
 /* 예약 */
 .rsvok { font-size: 12px; color: #8e44ad; background: #f3e8f8; border-radius: 6px; padding: 1px 6px; }
