@@ -23,6 +23,7 @@
     atypes: ['food', 'cafe', 'shop', 'sight'], wakeOn: false, zoom: 1, mapType: 'osm', poiOn: true }, LS.get('settings', {}));
   const saveS = () => LS.set('settings', S);
   let fav = new Set(LS.get('fav', []));
+  let myRsv = LS.get('rsv', {});   // 내 예약: {가게id: {u: 예약확인 링크, w: '11/15 18:30'}}
   let visited = new Set(LS.get('visited', []));
   let alerted = LS.get('alerted', {});
   let myPos = null;      // {lat, lng, acc}
@@ -135,7 +136,7 @@
     return `<div class="item" data-id="${it.id}"><div class="ic">${ICON[it.type] || '📍'}</div>
       <div class="tx"><div class="nm">${esc(it.name)} ${src}${it.caution ? ' <span class="cau">⚠</span>' : ''}</div>
       <div class="sub">${esc(it.cuisine || it.cat)} · ${esc(it.city)} ${rate}</div>
-      <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span></div></div>
+      <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span>${myRsv[it.id] ? ` <span class="rsvd">🎫 예약 ${esc(myRsv[it.id].w || '')}</span>` : (it.rsv ? ' <span class="rsvok">📅 예약</span>' : '')}</div></div>
       <div class="rt"><button class="heart" data-heart="${it.id}" aria-label="찜">${fav.has(it.id) ? '❤️' : '🤍'}</button><div class="dist">${fmtD(x.d)}</div></div></div>`;
   }
   function renderList() {
@@ -175,6 +176,7 @@
         <a class="btn green" href="${dirUrl(it, false)}" target="_blank" rel="noopener">🧭 길찾기<br><small>현재 위치에서</small></a></div>
       <div class="btnrow"><button class="btn dark" data-fav>${fav.has(it.id) ? '❤️ 찜 해제' : '🤍 찜하기'}</button>
         <button class="btn gray" data-taxi>🚕 주소 크게 보기</button></div>
+      ${rsvHTML(it)}
       ${it.caution ? `<div class="cauBox">⚠ <b>카페 후기 호불호</b><br>${esc(it.caution)}</div>` : ''}
       ${it.review ? `<div class="kv"><b>💬 후기 요약</b>${esc(it.review)}</div>` : ''}
       ${menu ? `<table class="menu"><tr><th>대표 메뉴·상품</th><th>TWD</th></tr>${menu}</table>` : ''}
@@ -190,14 +192,47 @@
     $('#sheet').dataset.id = id;
     history.pushState({ card: id }, '', '#' + id);
   }
+  function rsvHTML(it) {
+    const m = myRsv[it.id];
+    if (!it.rsv && !m) return '';
+    let h = '<div class="rsvBox">';
+    if (m) h += `<div class="rsvMine">🎫 <b>내 예약</b> ${esc(m.w || '')}</div>
+      <div class="btnrow"><a class="btn purple" href="${esc(m.u || (it.rsv && it.rsv.u) || it.map)}" target="_blank" rel="noopener">🎫 내 예약 보기<br><small>${m.u ? '저장한 확인 링크' : '예약 페이지'}</small></a>
+        <button class="btn gray" data-rsvedit>✏️ 수정·삭제</button></div>`;
+    else h += `<div class="btnrow"><a class="btn purple" href="${esc(it.rsv.u)}" target="_blank" rel="noopener">📅 온라인 예약<br><small>${esc(it.rsv.n)}</small></a>
+        <button class="btn gray" data-rsvedit>🎫 예약했어요<br><small>확인 링크 저장</small></button></div>`;
+    return h + '</div>';
+  }
+  function rsvForm(id) {
+    const m = myRsv[id] || {};
+    $('#taxi').innerHTML = `<div class="rsvForm" onclick="event.stopPropagation()">
+      <h3>🎫 내 예약 저장</h3>
+      <p class="hint">예약 후 문자·메일·앱에서 받은 <b>예약 확인 링크</b>를 붙여넣으세요. (없으면 비워 둬도 돼요)</p>
+      <input id="rsvU" type="url" placeholder="https://..." value="${esc(m.u || '')}">
+      <p class="hint">예약 날짜·시간</p>
+      <input id="rsvW" type="text" placeholder="예: 11/15 18:30 · 3명" value="${esc(m.w || '')}">
+      <div class="btnrow"><button class="btn green" data-rsvsave>저장</button>${myRsv[id] ? '<button class="btn gray" data-rsvdel>예약 삭제</button>' : ''}<button class="btn gray" data-rsvx>취소</button></div>
+    </div>`;
+    $('#taxi').classList.remove('hidden');
+    $('#taxi').querySelector('[data-rsvsave]').onclick = () => {
+      const u = $('#rsvU').value.trim(), w = $('#rsvW').value.trim();
+      if (u && !/^https?:\/\//i.test(u)) return toast('링크는 https:// 로 시작해야 해요');
+      myRsv[id] = { u, w }; LS.set('rsv', myRsv); fav.add(id); LS.set('fav', [...fav]);
+      $('#taxi').classList.add('hidden'); openCard(id); history.back(); refresh(); toast('🎫 예약을 저장했어요 (❤️ 찜에도 넣었어요)');
+    };
+    const del = $('#taxi').querySelector('[data-rsvdel]');
+    if (del) del.onclick = () => { delete myRsv[id]; LS.set('rsv', myRsv); $('#taxi').classList.add('hidden'); openCard(id); history.back(); refresh(); toast('예약 기록을 지웠어요'); };
+    $('#taxi').querySelector('[data-rsvx]').onclick = () => $('#taxi').classList.add('hidden');
+  }
   function closeCard() { $('#sheet').classList.add('hidden'); }
   $('#sheet').addEventListener('click', e => {
     const id = $('#sheet').dataset.id;
     if (e.target === $('#sheet') || e.target.closest('[data-x]')) { history.back(); return; }
     if (e.target.closest('[data-fav]')) { fav.has(id) ? fav.delete(id) : fav.add(id); LS.set('fav', [...fav]); openCard(id); history.back(); refresh(); }
+    if (e.target.closest('[data-rsvedit]')) { rsvForm(id); return; }
     if (e.target.closest('[data-taxi]')) { const it = BY_ID[id]; $('#taxi').innerHTML = `<div class="nm">${esc(it.zh)}</div><div class="big">${esc(it.addr)}</div><p>請帶我去這裡，謝謝！<br>(여기로 가 주세요)</p><button class="btn gray" style="max-width:240px">닫기</button>`; $('#taxi').classList.remove('hidden'); }
   });
-  $('#taxi').addEventListener('click', () => $('#taxi').classList.add('hidden'));
+  $('#taxi').addEventListener('click', e => { if (!e.target.closest('.rsvForm')) $('#taxi').classList.add('hidden'); });
   window.addEventListener('popstate', () => { if (!$('#sheet').classList.contains('hidden')) closeCard(); });
   window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (BY_ID[h] && $('#sheet').classList.contains('hidden')) openCard(h); });
   document.addEventListener('click', e => {
@@ -466,7 +501,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261018q').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261018r').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 

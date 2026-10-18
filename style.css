@@ -168,3 +168,13 @@ body[data-tab="talk"] header .controls { display: none; }
 #tab-info { padding-top: 6px; }
 #tab-talk > h2, #tab-set > h2 { margin-top: 4px; }
 #tab-talk .hint { margin-bottom: 4px; }
+
+/* 예약 */
+.rsvok { font-size: 12px; color: #8e44ad; background: #f3e8f8; border-radius: 6px; padding: 1px 6px; }
+.rsvd { display: inline-block; white-space: nowrap; margin-top: 3px; font-size: 12px; color: #fff; background: #8e44ad; border-radius: 6px; padding: 1px 6px; }
+.btn.purple { background: #8e44ad; color: #fff; }
+.rsvBox { margin: 4px 0; }
+.rsvMine { font-size: 14px; margin: 6px 2px 0; color: #8e44ad; }
+.rsvForm { background: #fff; color: #222; border-radius: 14px; padding: 16px; width: min(92vw, 440px); text-align: left; }
+.rsvForm h3 { margin: 0 0 6px; }
+.rsvForm input { width: 100%; font-size: 16px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
