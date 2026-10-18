@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<meta name="robots" content="noindex, nofollow">
+<title>대만 남부 여행 (타이난·가오슝)</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="lib/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="top">
+  <div class="title">🧳 대만 남부 여행 <small id="clock"></small></div>
+  <div class="seg" id="citySeg">
+    <button data-city="전체" class="on">전체</button><button data-city="타이난">🏯 타이난</button><button data-city="가오슝">🌉 가오슝</button>
+  </div>
+</header>
+
+<main>
+  <!-- 근처 -->
+  <section id="tab-near" class="tab on">
+    <div class="controls">
+      <div class="chips" id="typeChips">
+        <button data-t="all" class="on">전체</button><button data-t="food">🍜 음식</button><button data-t="cafe">☕ 카페·빵집</button>
+        <button data-t="shop">🛍 쇼핑</button><button data-t="sight">🏯 관광</button><button data-t="fav">★ 찜</button>
+      </div>
+      <div class="row2">
+        <label class="sw"><input type="checkbox" id="openOnly" checked><span>지금 영업 중만</span></label>
+        <button id="qBtn" class="icon">🔍</button>
+      </div>
+      <input id="q" type="search" class="hidden" placeholder="가게 이름·음식 검색 (한글/중문)">
+      <div class="refline" id="refline"></div>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <!-- 지도 -->
+  <section id="tab-map" class="tab"><div id="map"></div><button id="locBtn" class="fab">◎</button></section>
+
+
+  <!-- 정보 -->
+  <section id="tab-info" class="tab"><div id="info">불러오는 중…</div></section>
+
+  <!-- 설정 -->
+  <section id="tab-set" class="tab">
+    <h2>⚙️ 설정</h2>
+    <div class="card">
+      <label class="sw big"><input type="checkbox" id="alertOn"><span>🔔 근처 알림 켜기</span></label>
+      <p class="hint">켜면 내 위치를 계속 확인해서 <b id="radiusTxt">300m</b> 안에 <b>지금 영업 중인 곳</b>이 있으면 알려줘요. 같은 곳은 하루 한 번만 알려요.<br>⚠ 웹앱이라 <b>이 화면이 열려 있을 때만</b> 작동해요. 휴대폰 화면이 꺼지면 멈춰요.</p>
+      <div class="setrow">반경
+        <select id="radius"><option value="200">200m</option><option value="300" selected>300m</option><option value="500">500m</option></select>
+      </div>
+      <div class="setrow">알림 받을 종류</div>
+      <label class="sw"><input type="checkbox" class="atype" value="food" checked><span>🍜 음식점</span></label>
+      <label class="sw"><input type="checkbox" class="atype" value="cafe" checked><span>☕ 카페·디저트·빵집</span></label>
+      <label class="sw"><input type="checkbox" class="atype" value="shop" checked><span>🛍 쇼핑·기념품</span></label>
+      <label class="sw"><input type="checkbox" class="atype" value="sight" checked><span>🏯 관광지·야시장</span></label>
+      <label class="sw"><input type="checkbox" id="wakeOn"><span>💡 화면 켜두기 (알림 계속 받기, 배터리 소모 큼)</span></label>
+      <button id="testAlert" class="btn">테스트 알림 보내기</button>
+      <p class="hint" id="permState"></p>
+    </div>
+    <div class="card">
+      <b>⏱ 미리보기 시각</b>
+      <p class="hint">여행 전에 "그 시간에 어디가 열려 있나" 미리 볼 때만 바꾸세요. 여행 중에는 <b>지금</b>으로 두세요.</p>
+      <select id="when" class="full"></select>
+    </div>
+    <div class="card">
+      <b>🔠 글씨 크기</b>
+      <div class="seg2" id="fontSeg"><button data-z="0.9">작게</button><button data-z="1">보통</button><button data-z="1.15">크게</button><button data-z="1.3">아주 크게</button></div>
+      <p class="hint">화면은 두 손가락으로 벌리면 확대, 오므리면 축소돼요.</p>
+    </div>
+    <div class="card">
+      <b>홈 화면에 추가</b>
+      <p class="hint">안드로이드 크롬: 오른쪽 위 ⋮ → <b>홈 화면에 추가</b>(또는 앱 설치). 아이패드 사파리: 공유 버튼 → <b>홈 화면에 추가</b>. 한 번 열어두면 인터넷이 약해도 가게 정보는 볼 수 있어요(지도 배경은 인터넷 필요).</p>
+    </div>
+    <div class="card">
+      <button id="resetAlerted" class="btn gray">오늘 받은 알림 기록 지우기</button>
+      <p class="hint">데이터 기준: <span id="built"></span> (구글맵 영업상태·영업시간 확인) · 대만 식당은 부정기 휴무가 잦으니 방문 전 [구글맵 열기]로 한 번 더 확인하세요.</p>
+    </div>
+  </section>
+</main>
+
+<nav id="tabs">
+  <button data-tab="near" class="on">🧭<span>근처</span></button>
+  <button data-tab="map">🗺<span>지도</span></button>
+  <button data-tab="info">ℹ️<span>정보</span></button>
+  <button data-tab="set">⚙️<span>설정</span></button>
+</nav>
+
+<div id="sheet" class="sheet hidden"><div class="sheet-in" id="sheetIn"></div></div>
+<div id="taxi" class="taxi hidden"></div>
+<div id="toast" class="toast hidden"></div>
+
+<script src="lib/leaflet.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
