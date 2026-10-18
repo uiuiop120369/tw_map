@@ -178,3 +178,5 @@ body[data-tab="talk"] header .controls { display: none; }
 .rsvForm { background: #fff; color: #222; border-radius: 14px; padding: 16px; width: min(92vw, 440px); text-align: left; }
 .rsvForm h3 { margin: 0 0 6px; }
 .rsvForm input { width: 100%; font-size: 16px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+/* 회화·정보·설정: 필터 줄이 숨겨지므로 머리 부분 아래에 여백을 줘서 도시 버튼이 바닥에 붙지 않게 */
+body[data-tab="talk"] header, body[data-tab="info"] header, body[data-tab="set"] header { padding-bottom: 10px; }

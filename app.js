@@ -501,7 +501,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261018s').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261018u').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
@@ -523,7 +523,10 @@
 
   // 서비스워커: 오프라인 사용 + 알림 클릭 처리
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => { });
+    // 새 버전이 올라오면 화면을 한 번 자동 새로고침 (예전 화면이 계속 보이는 문제 방지)
+    const hadSW = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && !window.__reloaded) { window.__reloaded = 1; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { r.update(); document.addEventListener('visibilitychange', () => { if (!document.hidden) r.update(); }); }).catch(() => { });
     navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.open) openCard(e.data.open); });
   }
 
