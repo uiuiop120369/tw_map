@@ -1,6 +1,6 @@
 // 오프라인 캐시 + 알림 클릭 처리
-const VER = 'tw-2026-10-18c';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'info.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'lib/leaflet.js', 'lib/leaflet.css'];
+const VER = 'tw-2026-10-18f';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'info.html', 'manifest.json', 'config.js', 'icon-192.png', 'icon-512.png', 'lib/leaflet.js', 'lib/leaflet.css'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VER).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VER && k !== 'tiles').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {

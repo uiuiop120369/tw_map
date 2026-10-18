@@ -130,20 +130,20 @@
   // ---------- 목록 ----------
   function rowHTML(x) {
     const it = x.it;
-    const src = SRC_ICON[it.src] || '';
+    const src = it.src === '미쉐린 빕구르망' ? '🏅' : '';
     const rate = it.rating ? `⭐${it.rating}` : '';
     return `<div class="item" data-id="${it.id}"><div class="ic">${ICON[it.type] || '📍'}</div>
-      <div class="tx"><div class="nm">${fav.has(it.id) ? '★ ' : ''}${esc(it.name)} ${src}</div>
+      <div class="tx"><div class="nm">${esc(it.name)} ${src}</div>
       <div class="sub">${esc(it.cuisine || it.cat)} · ${esc(it.city)} ${rate}</div>
       <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span></div></div>
-      <div class="rt"><div class="dist">${fmtD(x.d)}</div></div></div>`;
+      <div class="rt"><button class="heart" data-heart="${it.id}" aria-label="찜">${fav.has(it.id) ? '❤️' : '🤍'}</button><div class="dist">${fmtD(x.d)}</div></div></div>`;
   }
   function renderList() {
     const t = twNow();
     const L = filtered();
     const ref = myPos ? '📍 내 위치 기준' : `🏨 숙소 기준 (위치 권한을 허용하면 내 위치 기준)`;
     $('#refline').innerHTML = `${ref} · ${L.length}곳` + (S.when !== 'now' ? `<div class="preview">⏱ 미리보기: ${esc(t.label)} 기준 (설정에서 ‘지금’으로 바꾸기)</div>` : '');
-    if (!L.length) { $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">가게를 눌러 ☆ 찜하기를 하면 여기에 모여요.</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>'); return; }
+    if (!L.length) { $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">목록 오른쪽의 🤍를 누르면 여기에 모여요.</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>'); return; }
     if (!myPos && S.city === '전체') {
       // 위치가 없으면 도시별로 나눠서 각 숙소 기준으로 보여줌
       const order = twNow().label === '지금' ? ['가오슝', '타이난'] : (S.when < '2026-11-14T13:00' ? ['타이난', '가오슝'] : ['가오슝', '타이난']);
@@ -173,7 +173,7 @@
       ${it.rating ? `<div class="kv">⭐ 구글 평점 <b style="display:inline">${it.rating}</b> · 리뷰 ${Number(it.reviews || 0).toLocaleString()}개</div>` : ''}
       <div class="btnrow"><a class="btn" href="${it.map}" target="_blank" rel="noopener">📍 구글맵 열기<br><small>리뷰·사진</small></a>
         <a class="btn green" href="${dirUrl(it, false)}" target="_blank" rel="noopener">🧭 길찾기<br><small>현재 위치에서</small></a></div>
-      <div class="btnrow"><button class="btn dark" data-fav>${fav.has(it.id) ? '★ 찜 해제' : '☆ 찜하기'}</button>
+      <div class="btnrow"><button class="btn dark" data-fav>${fav.has(it.id) ? '❤️ 찜 해제' : '🤍 찜하기'}</button>
         <button class="btn gray" data-taxi>🚕 주소 크게 보기</button></div>
       ${it.review ? `<div class="kv"><b>💬 후기 요약</b>${esc(it.review)}</div>` : ''}
       ${menu ? `<table class="menu"><tr><th>대표 메뉴·상품</th><th>TWD</th></tr>${menu}</table>` : ''}
@@ -198,44 +198,110 @@
   });
   $('#taxi').addEventListener('click', () => $('#taxi').classList.add('hidden'));
   window.addEventListener('popstate', () => { if (!$('#sheet').classList.contains('hidden')) closeCard(); });
-  document.addEventListener('click', e => { const r = e.target.closest('.item'); if (r) openCard(r.dataset.id); });
+  window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (BY_ID[h] && $('#sheet').classList.contains('hidden')) openCard(h); });
+  document.addEventListener('click', e => {
+    const hb = e.target.closest('[data-heart]');
+    if (hb) {
+      e.stopPropagation();
+      const id = hb.dataset.heart;
+      fav.has(id) ? fav.delete(id) : fav.add(id); LS.set('fav', [...fav]);
+      hb.textContent = fav.has(id) ? '❤️' : '🤍';
+      toast(fav.has(id) ? '❤️ 찜했어요 (위의 ‘❤️ 찜’에서 모아 보기)' : '찜을 해제했어요');
+      if (S.type === 'fav') renderList();
+      return;
+    }
+    const r = e.target.closest('.item'); if (r) openCard(r.dataset.id);
+  });
 
   // ---------- 지도 ----------
-  let map = null, layer = null, meMarker = null;
-  function initMap() {
-    if (map) return;
-    const c = S.city === '타이난' ? D.hotels['타이난'] : D.hotels['가오슝'];
+  // 구글 지도(한국어)를 우선 사용하고, 키가 없거나 실패하면 OpenStreetMap(Leaflet)으로 자동 전환
+  let map = null, gm = false, layerItems = [], meMarker = null, info = null, gmTried = false;
+  const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a></div>`;
+  function loadGoogle() {
+    return new Promise((ok, fail) => {
+      if (!window.MAPS_KEY) return fail('no key');
+      if (window.google && google.maps) return ok();
+      window.__gmReady = ok;
+      window.gm_authFailure = () => { toast('구글 지도를 불러오지 못해 기본 지도로 보여드려요.'); fail('auth'); fallbackLeaflet(); };
+      const s = document.createElement('script');
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(window.MAPS_KEY)}&language=ko&region=TW&callback=__gmReady&loading=async`;
+      s.async = true; s.onerror = () => fail('load');
+      document.head.appendChild(s);
+      setTimeout(() => fail('timeout'), 12000);
+    });
+  }
+  function centerOf() { return S.city === '타이난' ? D.hotels['타이난'] : D.hotels['가오슝']; }
+  function initLeaflet() {
+    gm = false;
+    const c = centerOf();
+    $('#map').innerHTML = '';
     map = L.map('map', { zoomControl: false }).setView([c.lat, c.lng], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-    layer = L.layerGroup().addTo(map);
-    for (const [city, h] of Object.entries(D.hotels)) {
-      L.marker([h.lat, h.lng], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#f1c40f">★</div>', iconSize: [26, 26] }) }).addTo(map).bindPopup('🏨 ' + h.name);
+    for (const h of Object.values(D.hotels)) L.marker([h.lat, h.lng], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#f1c40f">★</div>', iconSize: [26, 26] }) }).addTo(map).bindPopup('🏨 ' + h.name);
+  }
+  function initGoogle() {
+    gm = true;
+    const c = centerOf();
+    map = new google.maps.Map($('#map'), { center: { lat: c.lat, lng: c.lng }, zoom: 14, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false,
+      // 구글 기본 가게·업체 표시는 숨기고 우리 핀과 대중교통만 보이게 (화면 단순화)
+      styles: [{ featureType: 'poi.business', stylers: [{ visibility: 'off' }] }, { featureType: 'poi.attraction', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }] });
+    info = new google.maps.InfoWindow();
+    for (const h of Object.values(D.hotels)) {
+      const mk = new google.maps.Marker({ position: { lat: h.lat, lng: h.lng }, map, zIndex: 999, label: { text: '★', color: '#7a5b00', fontSize: '15px' },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: '#f1c40f', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
+      mk.addListener('click', () => { info.setContent('🏨 ' + esc(h.name)); info.open({ map, anchor: mk }); });
     }
   }
-  function renderMap() {
-    initMap();
-    setTimeout(() => map.invalidateSize(), 50);
-    layer.clearLayers();
+  function fallbackLeaflet() { if (gm || !map) { map = null; meMarker = null; layerItems = []; initLeaflet(); renderMap(); } }
+  async function initMap() {
+    if (map) return;
+    if (!gmTried && window.MAPS_KEY) {
+      gmTried = true;
+      try { await loadGoogle(); if (!map) initGoogle(); return; } catch (e) { }
+    }
+    if (!map) initLeaflet();
+  }
+  function clearMarkers() { for (const m of layerItems) gm ? m.setMap(null) : m.remove(); layerItems = []; }
+  async function renderMap() {
+    await initMap();
+    resizeMap();
+    clearMarkers();
     for (const x of filtered()) {
-      const it = x.it;
-      const m = L.marker([it.lat, it.lng], { icon: L.divIcon({ className: '', html: `<div class="mk" style="background:${COLOR[it.type]};opacity:${x.oi.st === 'open' || x.oi.st === 'closing' ? 1 : .55}">${ICON[it.type] || ''}</div>`, iconSize: [26, 26] }) });
-      m.bindPopup(`<b>${esc(it.name)}</b><br>${esc(it.zh)}<br><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a>`);
-      m.addTo(layer);
+      const it = x.it, on = x.oi.st === 'open' || x.oi.st === 'closing';
+      if (gm) {
+        const mk = new google.maps.Marker({ position: { lat: it.lat, lng: it.lng }, map, title: it.name, opacity: on ? 1 : 0.55,
+          label: { text: ICON[it.type] || '•', fontSize: '13px' },
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 13, fillColor: COLOR[it.type], fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
+        mk.addListener('click', () => { info.setContent(popupHTML(it, x.oi)); info.open({ map, anchor: mk }); });
+        layerItems.push(mk);
+      } else {
+        const m = L.marker([it.lat, it.lng], { icon: L.divIcon({ className: '', html: `<div class="mk" style="background:${COLOR[it.type]};opacity:${on ? 1 : .55}">${ICON[it.type] || ''}</div>`, iconSize: [26, 26] }) });
+        m.bindPopup(popupHTML(it, x.oi)); m.addTo(map); layerItems.push(m);
+      }
     }
     drawMe();
   }
   function drawMe() {
     if (!map || !myPos) return;
-    if (!meMarker) meMarker = L.marker([myPos.lat, myPos.lng], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18, 18] }) }).addTo(map);
-    else meMarker.setLatLng([myPos.lat, myPos.lng]);
+    if (gm) {
+      if (!meMarker) meMarker = new google.maps.Marker({ map, zIndex: 1000, position: myPos, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1a73e8', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 } });
+      else meMarker.setPosition(myPos);
+    } else {
+      if (!meMarker) meMarker = L.marker([myPos.lat, myPos.lng], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18, 18] }) }).addTo(map);
+      else meMarker.setLatLng([myPos.lat, myPos.lng]);
+    }
   }
+  function setView(lat, lng, z) { if (!map) return; gm ? (map.setCenter({ lat, lng }), map.setZoom(z)) : map.setView([lat, lng], z); }
+  function resizeMap() { if (map && !gm) setTimeout(() => map.invalidateSize(), 50); }
   document.addEventListener('click', e => { const a = e.target.closest('[data-open]'); if (a) { e.preventDefault(); openCard(a.dataset.open); } });
-  $('#locBtn').addEventListener('click', () => { getPos(true); if (myPos && map) map.setView([myPos.lat, myPos.lng], 16); });
+  $('#locBtn').addEventListener('click', () => { getPos(true); if (myPos) setView(myPos.lat, myPos.lng, 16); });
   function centerCity() {
     if (!map) return;
+    if (S.city !== '전체') { const h = D.hotels[S.city]; setView(h.lat, h.lng, 14); return; }
     const pts = filtered().map(x => [x.it.lat, x.it.lng]);
-    if (S.city !== '전체') { const h = D.hotels[S.city]; map.setView([h.lat, h.lng], 14); }
-    else if (pts.length) map.fitBounds(pts, { padding: [30, 30] });
+    if (!pts.length) return;
+    if (gm) { const b = new google.maps.LatLngBounds(); pts.forEach(p => b.extend({ lat: p[0], lng: p[1] })); map.fitBounds(b, 30); }
+    else map.fitBounds(pts, { padding: [30, 30] });
   }
 
   // ---------- 위치 ----------
@@ -313,6 +379,7 @@
   let activeTab = 'near';
   function showTab(t) {
     activeTab = t;
+    document.body.dataset.tab = t;
     $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
     $$('.tab').forEach(s => s.classList.toggle('on', s.id === 'tab-' + t));
     if (t === 'near') renderList();
@@ -352,7 +419,7 @@
 
   // 글씨 크기: 지도는 그대로 두고 목록·카드·정보·설정 화면만 확대
   function applyZoom() {
-    ['#top', '#tab-near', '#tab-fav', '#tab-info', '#tab-set', '#sheetIn', '#toast'].forEach(s => { const el = $(s); if (el) el.style.zoom = S.zoom; });
+    ['#top', '#tab-near', '#tab-info', '#tab-set', '#sheetIn', '#toast'].forEach(s => { const el = $(s); if (el) el.style.zoom = S.zoom; });
     $$('#fontSeg button').forEach(b => b.classList.toggle('on', Number(b.dataset.z) === Number(S.zoom)));
   }
   $$('#fontSeg button').forEach(b => b.addEventListener('click', () => { S.zoom = Number(b.dataset.z); saveS(); applyZoom(); setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }));
@@ -377,7 +444,7 @@
   }
 
   // 상단(헤더) 높이를 CSS 변수로: 글씨 크기·화면 회전에 따라 겹치지 않게
-  function setHH() { const h = $('#top').getBoundingClientRect().height; document.documentElement.style.setProperty('--hh', Math.round(h) + 'px'); if (map) map.invalidateSize(); }
+  function setHH() { const h = $('#top').getBoundingClientRect().height; document.documentElement.style.setProperty('--hh', Math.round(h) + 'px'); resizeMap(); }
   window.addEventListener('resize', setHH);
   new ResizeObserver(setHH).observe($('#top'));
 
