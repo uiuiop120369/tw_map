@@ -20,7 +20,7 @@
     set(k, v) { localStorage.setItem('tw_' + k, JSON.stringify(v)); }
   };
   const S = Object.assign({ city: '전체', type: 'all', openOnly: true, when: 'now', alertOn: false, radius: 300,
-    atypes: ['food', 'cafe', 'shop', 'sight'], wakeOn: false, zoom: 1 }, LS.get('settings', {}));
+    atypes: ['food', 'cafe', 'shop', 'sight'], wakeOn: false, zoom: 1, mapType: 'osm', poiOn: true }, LS.get('settings', {}));
   const saveS = () => LS.set('settings', S);
   let fav = new Set(LS.get('fav', []));
   let visited = new Set(LS.get('visited', []));
@@ -133,7 +133,7 @@
     const src = it.src === '미쉐린 빕구르망' ? '🏅' : '';
     const rate = it.rating ? `⭐${it.rating}` : '';
     return `<div class="item" data-id="${it.id}"><div class="ic">${ICON[it.type] || '📍'}</div>
-      <div class="tx"><div class="nm">${esc(it.name)} ${src}</div>
+      <div class="tx"><div class="nm">${esc(it.name)} ${src}${it.caution ? ' <span class="cau">⚠</span>' : ''}</div>
       <div class="sub">${esc(it.cuisine || it.cat)} · ${esc(it.city)} ${rate}</div>
       <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span></div></div>
       <div class="rt"><button class="heart" data-heart="${it.id}" aria-label="찜">${fav.has(it.id) ? '❤️' : '🤍'}</button><div class="dist">${fmtD(x.d)}</div></div></div>`;
@@ -175,6 +175,7 @@
         <a class="btn green" href="${dirUrl(it, false)}" target="_blank" rel="noopener">🧭 길찾기<br><small>현재 위치에서</small></a></div>
       <div class="btnrow"><button class="btn dark" data-fav>${fav.has(it.id) ? '❤️ 찜 해제' : '🤍 찜하기'}</button>
         <button class="btn gray" data-taxi>🚕 주소 크게 보기</button></div>
+      ${it.caution ? `<div class="cauBox">⚠ <b>카페 후기 호불호</b><br>${esc(it.caution)}</div>` : ''}
       ${it.review ? `<div class="kv"><b>💬 후기 요약</b>${esc(it.review)}</div>` : ''}
       ${menu ? `<table class="menu"><tr><th>대표 메뉴·상품</th><th>TWD</th></tr>${menu}</table>` : ''}
       ${days ? `<b style="font-size:12.5px;color:#555">🗓 여행 날짜 영업시간 (구글맵)</b><table class="days"><tr>${days}</tr></table>` : ''}
@@ -214,15 +215,18 @@
   });
 
   // ---------- 지도 ----------
-  // 구글 지도(한국어)를 우선 사용하고, 키가 없거나 실패하면 OpenStreetMap(Leaflet)으로 자동 전환
-  let map = null, gm = false, layerItems = [], meMarker = null, info = null, gmTried = false;
+  // 기본은 무료 지도(OpenStreetMap, 사용량 0). [구글 지도로 보기]를 누를 때만 구글 지도를 불러옴(앱을 켠 동안 1회만)
+  const POI_OFF = [{ featureType: 'poi.business', stylers: [{ visibility: 'off' }] }, { featureType: 'poi.attraction', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }];
+  const E = { osm: { map: null, items: [], me: null }, google: { map: null, items: [], me: null, info: null } };
+  let cur = 'osm', gLoading = false;
   const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a></div>`;
+  function centerOf() { return S.city === '타이난' ? D.hotels['타이난'] : D.hotels['가오슝']; }
   function loadGoogle() {
     return new Promise((ok, fail) => {
       if (!window.MAPS_KEY) return fail('no key');
       if (window.google && google.maps) return ok();
       window.__gmReady = ok;
-      window.gm_authFailure = () => { toast('구글 지도를 불러오지 못해 기본 지도로 보여드려요.'); fail('auth'); fallbackLeaflet(); };
+      window.gm_authFailure = () => { fail('auth'); toast('구글 지도를 불러오지 못해 무료 지도로 보여드려요.'); useMap('osm'); };
       const s = document.createElement('script');
       s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(window.MAPS_KEY)}&language=ko&region=TW&callback=__gmReady&loading=async`;
       s.async = true; s.onerror = () => fail('load');
@@ -230,78 +234,105 @@
       setTimeout(() => fail('timeout'), 12000);
     });
   }
-  function centerOf() { return S.city === '타이난' ? D.hotels['타이난'] : D.hotels['가오슝']; }
-  function initLeaflet() {
-    gm = false;
+  function initOsm() {
+    if (E.osm.map) return;
     const c = centerOf();
-    $('#map').innerHTML = '';
-    map = L.map('map', { zoomControl: false }).setView([c.lat, c.lng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-    for (const h of Object.values(D.hotels)) L.marker([h.lat, h.lng], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#f1c40f">★</div>', iconSize: [26, 26] }) }).addTo(map).bindPopup('🏨 ' + h.name);
+    const m = L.map('map', { zoomControl: false }).setView([c.lat, c.lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
+    L.control.zoom({ position: 'topright' }).addTo(m);
+    for (const h of Object.values(D.hotels)) L.marker([h.lat, h.lng], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#f1c40f">★</div>', iconSize: [26, 26] }) }).addTo(m).bindPopup('🏨 ' + h.name);
+    E.osm.map = m;
   }
   function initGoogle() {
-    gm = true;
-    const c = centerOf();
-    map = new google.maps.Map($('#map'), { center: { lat: c.lat, lng: c.lng }, zoom: 14, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false,
-      // 구글 기본 가게·업체 표시는 숨기고 우리 핀과 대중교통만 보이게 (화면 단순화)
-      styles: [{ featureType: 'poi.business', stylers: [{ visibility: 'off' }] }, { featureType: 'poi.attraction', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }] });
-    info = new google.maps.InfoWindow();
+    if (E.google.map) return;
+    const v = E.osm.map ? E.osm.map.getCenter() : centerOf();
+    const z = E.osm.map ? E.osm.map.getZoom() : 14;
+    const m = new google.maps.Map($('#gmap'), { center: { lat: v.lat, lng: v.lng }, zoom: z, disableDefaultUI: true, zoomControl: true,
+      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER }, gestureHandling: 'greedy',
+      clickableIcons: !!S.poiOn, styles: S.poiOn ? [] : POI_OFF });
+    E.google.info = new google.maps.InfoWindow();
     for (const h of Object.values(D.hotels)) {
-      const mk = new google.maps.Marker({ position: { lat: h.lat, lng: h.lng }, map, zIndex: 999, label: { text: '★', color: '#7a5b00', fontSize: '15px' },
+      const mk = new google.maps.Marker({ position: { lat: h.lat, lng: h.lng }, map: m, zIndex: 999, label: { text: '★', color: '#7a5b00', fontSize: '15px' },
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: '#f1c40f', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
-      mk.addListener('click', () => { info.setContent('🏨 ' + esc(h.name)); info.open({ map, anchor: mk }); });
+      mk.addListener('click', () => { E.google.info.setContent('🏨 ' + esc(h.name)); E.google.info.open({ map: m, anchor: mk }); });
     }
+    E.google.map = m;
   }
-  function fallbackLeaflet() { if (gm || !map) { map = null; meMarker = null; layerItems = []; initLeaflet(); renderMap(); } }
-  async function initMap() {
-    if (map) return;
-    if (!gmTried && window.MAPS_KEY) {
-      gmTried = true;
-      try { await loadGoogle(); if (!map) initGoogle(); return; } catch (e) { }
+  function viewOf(k) {
+    const m = E[k].map; if (!m) return null;
+    const c = m.getCenter(); return { lat: typeof c.lat === 'function' ? c.lat() : c.lat, lng: typeof c.lng === 'function' ? c.lng() : c.lng, z: m.getZoom() };
+  }
+  async function useMap(k) {
+    if (k === 'google') {
+      if (!window.MAPS_KEY) { toast('구글 지도 키가 없어 무료 지도만 쓸 수 있어요.'); k = 'osm'; }
+      else if (!E.google.map) {
+        if (gLoading) return;
+        gLoading = true; $('#mapSwitch').textContent = '구글 지도 불러오는 중…';
+        try { await loadGoogle(); initGoogle(); } catch (e) { k = 'osm'; }
+        gLoading = false;
+      }
     }
-    if (!map) initLeaflet();
+    const prev = viewOf(cur);
+    cur = k;
+    S.mapType = k; saveS();
+    $('#map').classList.toggle('hidden', k !== 'osm');
+    $('#gmap').classList.toggle('hidden', k !== 'google');
+    if (k === 'osm') initOsm();
+    if (prev) setView(prev.lat, prev.lng, prev.z);
+    $('#mapSwitch').textContent = k === 'osm' ? '🇰🇷 구글 지도로 보기' : '🗺 무료 지도로';
+    $$('#mapSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === k));
+    renderMap();
   }
-  function clearMarkers() { for (const m of layerItems) gm ? m.setMap(null) : m.remove(); layerItems = []; }
-  async function renderMap() {
-    await initMap();
+  function clearMarkers() {
+    for (const k of ['osm', 'google']) { for (const m of E[k].items) k === 'google' ? m.setMap(null) : m.remove(); E[k].items = []; }
+  }
+  function renderMap() {
+    if (!E[cur].map) { if (cur === 'osm') initOsm(); else return; }
     resizeMap();
     clearMarkers();
+    const m = E[cur].map;
     for (const x of filtered()) {
       const it = x.it, on = x.oi.st === 'open' || x.oi.st === 'closing';
-      if (gm) {
-        const mk = new google.maps.Marker({ position: { lat: it.lat, lng: it.lng }, map, title: it.name, opacity: on ? 1 : 0.55,
+      if (cur === 'google') {
+        const mk = new google.maps.Marker({ position: { lat: it.lat, lng: it.lng }, map: m, title: it.name, opacity: on ? 1 : 0.55,
           label: { text: ICON[it.type] || '•', fontSize: '13px' },
           icon: { path: google.maps.SymbolPath.CIRCLE, scale: 13, fillColor: COLOR[it.type], fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
-        mk.addListener('click', () => { info.setContent(popupHTML(it, x.oi)); info.open({ map, anchor: mk }); });
-        layerItems.push(mk);
+        mk.addListener('click', () => { E.google.info.setContent(popupHTML(it, x.oi)); E.google.info.open({ map: m, anchor: mk }); });
+        E.google.items.push(mk);
       } else {
-        const m = L.marker([it.lat, it.lng], { icon: L.divIcon({ className: '', html: `<div class="mk" style="background:${COLOR[it.type]};opacity:${on ? 1 : .55}">${ICON[it.type] || ''}</div>`, iconSize: [26, 26] }) });
-        m.bindPopup(popupHTML(it, x.oi)); m.addTo(map); layerItems.push(m);
+        const mk = L.marker([it.lat, it.lng], { icon: L.divIcon({ className: '', html: `<div class="mk" style="background:${COLOR[it.type]};opacity:${on ? 1 : .55}">${ICON[it.type] || ''}</div>`, iconSize: [26, 26] }) });
+        mk.bindPopup(popupHTML(it, x.oi)); mk.addTo(m); E.osm.items.push(mk);
       }
     }
     drawMe();
   }
   function drawMe() {
-    if (!map || !myPos) return;
-    if (gm) {
-      if (!meMarker) meMarker = new google.maps.Marker({ map, zIndex: 1000, position: myPos, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1a73e8', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 } });
-      else meMarker.setPosition(myPos);
-    } else {
-      if (!meMarker) meMarker = L.marker([myPos.lat, myPos.lng], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18, 18] }) }).addTo(map);
-      else meMarker.setLatLng([myPos.lat, myPos.lng]);
+    if (!myPos) return;
+    const g = E.google, o = E.osm;
+    if (g.map) {
+      if (!g.me) g.me = new google.maps.Marker({ map: g.map, zIndex: 1000, position: myPos, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1a73e8', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 } });
+      else g.me.setPosition(myPos);
+    }
+    if (o.map) {
+      if (!o.me) o.me = L.marker([myPos.lat, myPos.lng], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18, 18] }) }).addTo(o.map);
+      else o.me.setLatLng([myPos.lat, myPos.lng]);
     }
   }
-  function setView(lat, lng, z) { if (!map) return; gm ? (map.setCenter({ lat, lng }), map.setZoom(z)) : map.setView([lat, lng], z); }
-  function resizeMap() { if (map && !gm) setTimeout(() => map.invalidateSize(), 50); }
+  function setView(lat, lng, z) {
+    const m = E[cur].map; if (!m) return;
+    cur === 'google' ? (m.setCenter({ lat, lng }), m.setZoom(z)) : m.setView([lat, lng], z);
+  }
+  function resizeMap() { if (E.osm.map && cur === 'osm') setTimeout(() => E.osm.map.invalidateSize(), 50); }
   document.addEventListener('click', e => { const a = e.target.closest('[data-open]'); if (a) { e.preventDefault(); openCard(a.dataset.open); } });
   $('#locBtn').addEventListener('click', () => { getPos(true); if (myPos) setView(myPos.lat, myPos.lng, 16); });
+  $('#mapSwitch').addEventListener('click', () => useMap(cur === 'osm' ? 'google' : 'osm'));
   function centerCity() {
-    if (!map) return;
+    const m = E[cur].map; if (!m) return;
     if (S.city !== '전체') { const h = D.hotels[S.city]; setView(h.lat, h.lng, 14); return; }
     const pts = filtered().map(x => [x.it.lat, x.it.lng]);
     if (!pts.length) return;
-    if (gm) { const b = new google.maps.LatLngBounds(); pts.forEach(p => b.extend({ lat: p[0], lng: p[1] })); map.fitBounds(b, 30); }
-    else map.fitBounds(pts, { padding: [30, 30] });
+    if (cur === 'google') { const b = new google.maps.LatLngBounds(); pts.forEach(p => b.extend({ lat: p[0], lng: p[1] })); m.fitBounds(b, 30); }
+    else m.fitBounds(pts, { padding: [30, 30] });
   }
 
   // ---------- 위치 ----------
@@ -422,6 +453,10 @@
     ['#top', '#tab-near', '#tab-info', '#tab-set', '#sheetIn', '#toast'].forEach(s => { const el = $(s); if (el) el.style.zoom = S.zoom; });
     $$('#fontSeg button').forEach(b => b.classList.toggle('on', Number(b.dataset.z) === Number(S.zoom)));
   }
+  // 지도 종류·주변 가게 표시: 바꾸면 새로 불러오기
+  $$('#mapSeg button').forEach(b => { b.classList.toggle('on', b.dataset.m === 'osm'); b.addEventListener('click', () => { if (cur === b.dataset.m) return; showTab('map'); useMap(b.dataset.m); }); });
+  $('#poiOn').checked = S.poiOn;
+  $('#poiOn').addEventListener('change', e => { S.poiOn = e.target.checked; saveS(); if (E.google.map) E.google.map.setOptions({ clickableIcons: S.poiOn, styles: S.poiOn ? [] : POI_OFF }); });
   $$('#fontSeg button').forEach(b => b.addEventListener('click', () => { S.zoom = Number(b.dataset.z); saveS(); applyZoom(); setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }));
   applyZoom();
 
@@ -429,7 +464,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261018k').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
@@ -439,7 +474,7 @@
 
   // 서비스워커: 오프라인 사용 + 알림 클릭 처리
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').catch(() => { });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => { });
     navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.open) openCard(e.data.open); });
   }
 

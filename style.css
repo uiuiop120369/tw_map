@@ -139,3 +139,15 @@ header .controls { position: static; background: #fff; color: #222; margin: 8px 
 main { padding-top: var(--hh, 160px); }
 body[data-tab="info"] header .controls, body[data-tab="set"] header .controls { display: none; }
 @media (min-width: 700px) { header .controls { margin: 8px -16px 0; padding: 8px 16px; } }
+
+/* 현재 위치 버튼: 확대·축소(오른쪽 가운데)와 구글 로고·문구(맨 아래)를 피해서 오른쪽 아래 */
+.fab { right: 12px; bottom: calc(64px + 44px + env(safe-area-inset-bottom)); width: 46px; height: 46px; }
+@media (min-width: 700px) { .fab { right: 16px; bottom: calc(64px + 48px + env(safe-area-inset-bottom)); } }
+
+/* 구글 지도 영역(무료 지도와 같은 자리) + 지도 전환 버튼 */
+#gmap { position: fixed !important; top: var(--hh, 86px); bottom: 64px; left: 0; right: 0; }
+#map.hidden, #gmap.hidden { display: none; }
+.mapsw { position: fixed; left: 10px; top: calc(var(--hh, 86px) + 10px); z-index: 500; border: 0; border-radius: 20px; padding: 9px 14px; background: #fff; color: #1a5fb4; font-weight: 700; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+
+.cau { color: #b7791f; font-size: 13px; }
+.cauBox { background: #fff8e1; border-left: 4px solid #f39c12; padding: 7px 9px; border-radius: 6px; font-size: 13.5px; margin: 8px 0; }

@@ -1,5 +1,5 @@
 // 오프라인 캐시 + 알림 클릭 처리
-const VER = 'tw-2026-10-18f';
+const VER = 'tw-20261018k';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'info.html', 'manifest.json', 'config.js', 'icon-192.png', 'icon-512.png', 'lib/leaflet.js', 'lib/leaflet.css'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VER).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VER && k !== 'tiles').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
@@ -12,7 +12,7 @@ self.addEventListener('fetch', e => {
   }
   if (u.origin === location.origin) {
     // 앱 파일: 네트워크 우선, 실패하면 캐시
-    e.respondWith(fetch(e.request).then(res => { const cp = res.clone(); caches.open(VER).then(c => c.put(e.request, cp)); return res; }).catch(() => caches.match(e.request, { ignoreSearch: true })));
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(res => { const cp = res.clone(); caches.open(VER).then(c => c.put(e.request, cp)); return res; }).catch(() => caches.match(e.request, { ignoreSearch: true })));
   }
 });
 self.addEventListener('notificationclick', e => {
