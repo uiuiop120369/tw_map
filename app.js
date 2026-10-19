@@ -12,7 +12,7 @@
   const DAYK = ['일', '월', '화', '수', '목', '금', '토'];
   const ICON = { food: '🍜', cafe: '☕', bakery: '🥐', shop: '🛍', sight: '🏯', market: '🏮', hotel: '🏨' };
   const COLOR = { food: '#c0392b', cafe: '#27804c', bakery: '#e67e22', shop: '#8e44ad', sight: '#2c3e50', market: '#d35400', hotel: '#f1c40f' };
-  const SRC_ICON = { '미쉐린 빕구르망': '🏅', '구글 고평점': '⭐', '카페 추천': '📝', '펑리수 유명점': '🍍' };
+  const SRC_ICON = { '미쉐린 빕구르망': '🏅', '구글 고평점': '⭐', '카페 추천': '📝', '펑리수 유명점': '🍍', '2026 신규': '🆕' };
 
   // ---------- 저장 ----------
   const LS = {
@@ -131,7 +131,7 @@
   // ---------- 목록 ----------
   function rowHTML(x) {
     const it = x.it;
-    const src = it.src === '미쉐린 빕구르망' ? '🏅' : '';
+    const src = it.src === '미쉐린 빕구르망' ? '🏅' : (it.src === '2026 신규' ? '🆕' : '');
     const rate = it.rating ? `⭐${it.rating}` : '';
     return `<div class="item" data-id="${it.id}"><div class="ic">${ICON[it.type] || '📍'}</div>
       <div class="tx"><div class="nm">${esc(it.name)} ${src}${it.caution ? ' <span class="cau">⚠</span>' : ''}</div>
@@ -349,7 +349,7 @@
       else g.me.setPosition(myPos);
     }
     if (o.map) {
-      if (!o.me) o.me = L.marker([myPos.lat, myPos.lng], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18, 18] }) }).addTo(o.map);
+      if (!o.me) o.me = L.marker([myPos.lat, myPos.lng], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18, 18] }), zIndexOffset: 2000 }).addTo(o.map);
       else o.me.setLatLng([myPos.lat, myPos.lng]);
     }
   }
@@ -359,7 +359,9 @@
   }
   function resizeMap() { if (E.osm.map && cur === 'osm') setTimeout(() => E.osm.map.invalidateSize(), 50); }
   document.addEventListener('click', e => { const a = e.target.closest('[data-open]'); if (a) { e.preventDefault(); openCard(a.dataset.open); } });
-  $('#locBtn').addEventListener('click', () => { getPos(true); if (myPos) setView(myPos.lat, myPos.lng, 16); });
+  // 내 위치 버튼: 위치를 새로 받아온 뒤 그 자리로 이동 (처음 누를 때도 바로 이동되게)
+  let centerNext = false;
+  $('#locBtn').addEventListener('click', () => { centerNext = true; if (myPos) setView(myPos.lat, myPos.lng, 16); getPos(true); });
   $('#mapSwitch').addEventListener('click', () => useMap(cur === 'osm' ? 'google' : 'osm'));
   function centerCity() {
     const m = E[cur].map; if (!m) return;
@@ -375,12 +377,13 @@
     myPos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
     drawMe();
     checkNearby();
-    if (activeTab === 'near') renderList();
+    if (activeTab === 'near' || activeTab === 'map') renderList();
     if (activeTab === 'map') drawMe();
+    if (centerNext) { centerNext = false; setView(myPos.lat, myPos.lng, 16); }
   }
   function getPos(ask) {
     if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(onPos, err => { if (ask) toast('위치를 가져오지 못했어요. 휴대폰 위치(GPS)와 브라우저 위치 권한을 확인해 주세요.'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 20000 });
+    navigator.geolocation.getCurrentPosition(onPos, err => { if (ask) toast('위치를 가져오지 못했어요. 휴대폰 위치(GPS)와 브라우저 위치 권한을 확인해 주세요.'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: ask ? 0 : 20000 });
   }
 
   // ---------- 근처 알림 ----------
@@ -501,7 +504,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261018u').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261019e').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
