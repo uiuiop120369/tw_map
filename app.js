@@ -12,6 +12,12 @@
   const DAYK = ['일', '월', '화', '수', '목', '금', '토'];
   const ICON = { food: '🍜', cafe: '☕', bakery: '🥐', shop: '🛍', sight: '🏯', market: '🏮', hotel: '🏨' };
   const COLOR = { food: '#c0392b', cafe: '#27804c', bakery: '#e67e22', shop: '#8e44ad', sight: '#2c3e50', market: '#d35400', hotel: '#f1c40f' };
+  // 세분류(음식점·카페 세부 종류): [이모티콘, 이름] / 목록에서 보여주는 순서
+  const SUB = { noodle: ['🍜', '면·우육면'], dump: ['🥟', '만두·딤섬'], rice: ['🍚', '밥·샤오츠(간식)'], hotpot: ['🍲', '훠궈·탕'], sea: ['🦐', '해산물'],
+    dish: ['🥢', '대만·중국요리'], break: ['🥞', '대만식 아침'], bar: ['🍺', '술집·바'],
+    cafe: ['☕', '카페'], drink: ['🧋', '차·밀크티'], ice: ['🍧', '빙수·더우화·아이스'], cake: ['🍰', '케이크·디저트'], bread: ['🍞', '빵집'], pine: ['🍍', '펑리수'] };
+  const SUB_ORDER = { food: ['noodle', 'dump', 'rice', 'hotpot', 'sea', 'dish', 'break', 'bar'], cafe: ['cafe', 'drink', 'ice', 'cake', 'bread', 'pine'] };
+  const iconOf = it => (SUB[it.sub] || [])[0] || ICON[it.type] || '📍';
   const SRC_ICON = { '미쉐린 빕구르망': '🏅', '구글 고평점': '⭐', '카페 추천': '📝', '펑리수 유명점': '🍍', '2026 신규': '🆕' };
 
   // ---------- 저장 ----------
@@ -133,7 +139,7 @@
     const it = x.it;
     const src = it.src === '미쉐린 빕구르망' ? '🏅' : (it.src === '2026 신규' ? '🆕' : '');
     const rate = it.rating ? `⭐${it.rating}` : '';
-    return `<div class="item" data-id="${it.id}"><div class="ic">${ICON[it.type] || '📍'}</div>
+    return `<div class="item" data-id="${it.id}"><div class="ic">${iconOf(it)}</div>
       <div class="tx"><div class="nm">${esc(it.name)} ${src}${it.caution ? ' <span class="cau">⚠</span>' : ''}</div>
       <div class="sub">${esc(it.cuisine || it.cat)} · ${esc(it.city)} ${rate}</div>
       <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span>${myRsv[it.id] ? ` <span class="rsvd">🎫 예약 ${esc(myRsv[it.id].w || '')}</span>` : (it.rsv ? ' <span class="rsvok">📅 예약</span>' : '')}</div></div>
@@ -148,11 +154,25 @@
     if (!myPos && S.city === '전체') {
       // 위치가 없으면 도시별로 나눠서 각 숙소 기준으로 보여줌
       const order = twNow().label === '지금' ? ['가오슝', '타이난'] : (S.when < '2026-11-14T13:00' ? ['타이난', '가오슝'] : ['가오슝', '타이난']);
-      $('#list').innerHTML = order.map(c => { const LL = L.filter(x => x.it.city === c); return LL.length ? `<div class="sec">${c === '타이난' ? '🏯' : '🌉'} ${c} · ${esc(D.hotels[c].name)} 기준 (${LL.length}곳)</div>` + LL.slice(0, 150).map(rowHTML).join('') : ''; }).join('');
+      $('#list').innerHTML = order.map(c => { const LL = L.filter(x => x.it.city === c); return LL.length ? `<div class="sec">${c === '타이난' ? '🏯' : '🌉'} ${c} · ${esc(D.hotels[c].name)} 기준 (${LL.length}곳)</div>` + groupHTML(LL, c) : ''; }).join('');
       return;
     }
-    $('#list').innerHTML = L.slice(0, 200).map(rowHTML).join('');
+    $('#list').innerHTML = groupHTML(L, '');
   }
+  // 음식·카페 버튼을 눌렀을 때는 세부 종류별로 묶고(종류 안에서는 가까운 순), 맨 위에 종류 바로가기 줄을 보여줌
+  function groupHTML(L, tag) {
+    const ord = SUB_ORDER[S.type];
+    if (!ord) return L.slice(0, 200).map(rowHTML).join('');
+    const G = ord.map(k => [k, L.filter(x => x.it.sub === k)]).filter(g => g[1].length);
+    const rest = L.filter(x => !ord.includes(x.it.sub));
+    const jump = `<div class="subjump">${G.map(([k, X]) => `<button data-jump="sub-${tag}${k}">${SUB[k][0]} ${SUB[k][1]} <b>${X.length}</b></button>`).join('')}</div>`;
+    return jump + G.map(([k, X]) => `<div class="subsec" id="sub-${tag}${k}">${SUB[k][0]} ${SUB[k][1]} <small>(${X.length}곳 · 가까운 순)</small></div>` + X.map(rowHTML).join('')).join('') + rest.map(rowHTML).join('');
+  }
+  document.addEventListener('click', e => {
+    const j = e.target.closest('[data-jump]'); if (!j) return;
+    const el = document.getElementById(j.dataset.jump); if (!el) return;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hh')) || 160) - 6, behavior: 'smooth' });
+  });
   // ---------- 상세 카드 ----------
   const TRIP_DAYS = { '타이난': [['11/13(금)', 5], ['11/14(토)', 6]], '가오슝': [['11/14(토)', 6], ['11/15(일)', 0], ['11/16(월)', 1]] };
   function dirUrl(it, fromHotel) {
@@ -168,7 +188,7 @@
     const menu = (it.menu || []).filter(m => m.i).map(m => `<tr><td>${esc(m.i)}</td><td>${esc(m.p)}</td></tr>`).join('');
     const walk = d <= 1.2 ? `도보 약 ${Math.round(d * 1.35 * 1000 / 75)}분` : `택시·우버 약 ${Math.round(d * 1.35 / 22 * 60 + 3)}분`;
     $('#sheetIn').innerHTML = `<button class="close" data-x>✕</button>
-      <h3>${ICON[it.type] || ''} ${esc(it.name)}</h3><div class="zh">${esc(it.zh)}</div>
+      <h3>${iconOf(it)} ${esc(it.name)}</h3><div class="zh">${esc(it.zh)}</div>
       <div class="badges"><span class="badge">${esc(it.cat)}</span>${it.cuisine ? `<span class="badge">${esc(it.cuisine)}</span>` : ''}${it.src ? `<span class="badge ${srcCls}">${SRC_ICON[it.src] || ''} ${esc(it.src)}</span>` : ''}${it.b19 ? `<span class="badge cf">📝 먹을거리 게시판 추천 ${it.b19}건</span>` : ''}</div>
       <div><span class="st ${oi.st}">${esc(oi.txt)}</span> <small>(${esc(t.label)} 기준)</small></div>
       ${it.rating ? `<div class="kv">⭐ 구글 평점 <b style="display:inline">${it.rating}</b> · 리뷰 ${Number(it.reviews || 0).toLocaleString()}개</div>` : ''}
@@ -330,12 +350,12 @@
       const it = x.it, on = x.oi.st === 'open' || x.oi.st === 'closing';
       if (cur === 'google') {
         const mk = new google.maps.Marker({ position: { lat: it.lat, lng: it.lng }, map: m, title: it.name, opacity: on ? 1 : 0.55,
-          label: { text: ICON[it.type] || '•', fontSize: '13px' },
+          label: { text: iconOf(it), fontSize: '13px' },
           icon: { path: google.maps.SymbolPath.CIRCLE, scale: 13, fillColor: COLOR[it.type], fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
         mk.addListener('click', () => { E.google.info.setContent(popupHTML(it, x.oi)); E.google.info.open({ map: m, anchor: mk }); });
         E.google.items.push(mk);
       } else {
-        const mk = L.marker([it.lat, it.lng], { icon: L.divIcon({ className: '', html: `<div class="mk" style="background:${COLOR[it.type]};opacity:${on ? 1 : .55}">${ICON[it.type] || ''}</div>`, iconSize: [26, 26] }) });
+        const mk = L.marker([it.lat, it.lng], { icon: L.divIcon({ className: '', html: `<div class="mk" style="background:${COLOR[it.type]};opacity:${on ? 1 : .55}">${iconOf(it)}</div>`, iconSize: [26, 26] }) });
         mk.bindPopup(popupHTML(it, x.oi)); mk.addTo(m); E.osm.items.push(mk);
       }
     }
@@ -413,7 +433,7 @@
       const ok = oi.st === 'open' || oi.st === 'closing' || (oi.st === 'unknown' && (it.type === 'sight' || it.type === 'market'));
       if (!ok) continue;
       alerted[it.id] = Date.now();
-      notify(`${ICON[it.type]} 근처 ${Math.round(d)}m: ${it.name}`, `${it.cuisine || it.cat} · ${oi.txt}${it.rating ? ' · ⭐' + it.rating : ''}`, it.id);
+      notify(`${iconOf(it)} 근처 ${Math.round(d)}m: ${it.name}`, `${it.cuisine || it.cat} · ${oi.txt}${it.rating ? ' · ⭐' + it.rating : ''}`, it.id);
     }
     LS.set('alerted', alerted);
   }
@@ -504,7 +524,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261019e').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261020e').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 

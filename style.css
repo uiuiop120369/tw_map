@@ -180,3 +180,10 @@ body[data-tab="talk"] header .controls { display: none; }
 .rsvForm input { width: 100%; font-size: 16px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
 /* 회화·정보·설정: 필터 줄이 숨겨지므로 머리 부분 아래에 여백을 줘서 도시 버튼이 바닥에 붙지 않게 */
 body[data-tab="talk"] header, body[data-tab="info"] header, body[data-tab="set"] header { padding-bottom: 10px; }
+
+/* 세분류: 종류 바로가기 줄 + 종류 제목 */
+.subjump { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.subjump button { border: 1px solid #d5d8dc; background: #fff; border-radius: 16px; padding: 5px 10px; font-size: 13px; color: #222; }
+.subjump button b { color: #c0392b; }
+.subsec { grid-column: 1 / -1; font-weight: 700; color: #c0392b; border-bottom: 2px solid #f0c9c4; padding: 6px 4px 4px; margin: 12px 0 4px; font-size: 15px; }
+.subsec small { color: #888; font-weight: 400; font-size: 12px; }
