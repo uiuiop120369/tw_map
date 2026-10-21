@@ -13,11 +13,11 @@
   const ICON = { food: '🍜', cafe: '☕', bakery: '🥐', shop: '🛍', sight: '🏯', market: '🏮', hotel: '🏨' };
   const COLOR = { food: '#c0392b', cafe: '#27804c', bakery: '#e67e22', shop: '#8e44ad', sight: '#2c3e50', market: '#d35400', hotel: '#f1c40f' };
   // 세분류(음식점·카페 세부 종류): [이모티콘, 이름] / 목록에서 보여주는 순서
-  const SUB = { noodle: ['🍜', '면·우육면'], dump: ['🥟', '만두·딤섬'], rice: ['🍚', '밥·샤오츠(간식)'], hotpot: ['🍲', '훠궈·탕'], sea: ['🦐', '해산물'],
+  const SUB = { noodle: ['🍜', '면·우육면'], dump: ['🥟', '만두·딤섬'], rice: ['🍚', '밥·샤오츠(간식)'], take: ['🥡', '포장·길거리 간식'], hotpot: ['🍲', '훠궈·탕'], sea: ['🦐', '해산물'],
     dish: ['🥢', '대만·중국요리'], break: ['🥞', '대만식 아침'], bar: ['🍺', '술집·바'],
     cafe: ['☕', '카페'], drink: ['🧋', '차·밀크티'], ice: ['🍧', '빙수·더우화·아이스'], cake: ['🍰', '케이크·디저트'], bread: ['🍞', '빵집'], pine: ['🍍', '펑리수'] };
-  const SUB_ORDER = { food: ['noodle', 'dump', 'rice', 'hotpot', 'sea', 'dish', 'break', 'bar'], cafe: ['cafe', 'drink', 'ice', 'cake', 'bread', 'pine'] };
-  const SUB_SHORT = { noodle: '면', dump: '만두', rice: '밥·간식', hotpot: '훠궈', sea: '해산물', dish: '요리', break: '아침', bar: '술집', cafe: '카페', drink: '차·음료', ice: '빙수', cake: '케이크', bread: '빵', pine: '펑리수' };
+  const SUB_ORDER = { food: ['noodle', 'dump', 'rice', 'take', 'hotpot', 'sea', 'dish', 'break', 'bar'], cafe: ['cafe', 'drink', 'ice', 'cake', 'bread', 'pine'] };
+  const SUB_SHORT = { noodle: '면', dump: '만두', rice: '밥·간식', take: '포장', hotpot: '훠궈', sea: '해산물', dish: '요리', break: '아침', bar: '술집', cafe: '카페', drink: '차·음료', ice: '빙수', cake: '케이크', bread: '빵', pine: '펑리수' };
   const iconOf = it => (SUB[it.sub] || [])[0] || ICON[it.type] || '📍';
   const SRC_ICON = { '미쉐린 빕구르망': '🏅', '구글 고평점': '⭐', '카페 추천': '📝', '펑리수 유명점': '🍍', '2026 신규': '🆕', '대만 대표 체인': '🇹🇼' };
 
@@ -631,7 +631,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261021l').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261021n').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
