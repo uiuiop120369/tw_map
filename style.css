@@ -262,3 +262,7 @@ body[data-tab="map"] .subsel { display: none; }
 #info table.optab th:first-child, #info table.optab td:first-child { width: 36%; }
 #info table { max-width: 100%; }
 #info { overflow-wrap: anywhere; }
+
+/* 인플루언서 추천 */
+.inflBox { background: #f3e8fd; border-left: 4px solid #8e44ad; border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 13.5px; line-height: 1.5; }
+.item .infl { font-size: 12px; }
