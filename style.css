@@ -187,3 +187,78 @@ body[data-tab="talk"] header, body[data-tab="info"] header, body[data-tab="set"]
 .subjump button b { color: #c0392b; }
 .subsec { grid-column: 1 / -1; font-weight: 700; color: #c0392b; border-bottom: 2px solid #f0c9c4; padding: 6px 4px 4px; margin: 12px 0 4px; font-size: 15px; }
 .subsec small { color: #888; font-weight: 400; font-size: 12px; }
+
+/* 위치 허용 안내 */
+.locAsk { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.locBox { background: #fff; border-radius: 14px; padding: 18px; width: min(92vw, 440px); }
+.locBox h3 { margin: 0 0 8px; }
+.locBox p { font-size: 14.5px; line-height: 1.5; margin: 6px 0; }
+.locBox .warn { background: #fdecea; border-radius: 8px; padding: 8px 10px; }
+.locAsk.hidden { display: none; }
+
+/* ===== 간소화 디자인 (2026-10-21) ===== */
+header .toprow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+header .title { font-size: 16px; white-space: nowrap; }
+header .title small { font-size: 11.5px; opacity: .9; margin-left: 4px; }
+header .toprow .seg { margin-top: 0; flex: 0 1 230px; gap: 3px; }
+header .toprow .seg button { padding: 6px 0; font-size: 13px; }
+header .controls { padding: 4px 10px 5px; }
+.chiprow { display: flex; align-items: center; gap: 6px; }
+.chiprow .chips { flex: 1; min-width: 0; padding: 4px 0; }
+.chiprow #qBtn { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid #ccc; border-radius: 17px; background: #fff; font-size: 15px; padding: 0; }
+.chips button { padding: 5px 11px; font-size: 13.5px; }
+.subchips { padding: 2px 0 4px; gap: 5px; }
+.subchips button { padding: 3px 9px; font-size: 12.5px; border-color: #e5e7e9; background: #f6f7f8; color: #333; }
+.subchips button b { color: #c0392b; font-weight: 700; margin-left: 2px; }
+.subchips button.on { background: #fdecea; border-color: #f0b8b0; color: #c0392b; }
+header .row2 { margin-top: 1px; }
+header .refline { margin-top: 0; font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sw.mini { flex: 0 0 auto; font-size: 12.5px; color: #333; padding: 0; gap: 4px; }
+.sw.mini input { width: 16px; height: 16px; }
+#q { margin: 2px 0 4px; padding: 7px 10px; }
+.subjump { display: none; }
+.subsec { margin: 10px 0 2px; padding: 4px 4px 3px; font-size: 14px; }
+/* 목록 한 줄: 여백을 줄여 더 많이 보이게 */
+.item { padding: 8px 10px; margin: 5px 0; gap: 8px; }
+.item .ic { font-size: 20px; width: 28px; }
+.item .nm { font-size: 15px; }
+/* 맨 위로 버튼: 근처 탭에서 아래로 내렸을 때만, 아래 메뉴 바로 위 오른쪽 */
+.totop { position: fixed; right: 10px; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 55; width: 40px; height: 40px; border-radius: 20px; border: 0;
+  background: rgba(52,73,94,.88); color: #fff; font-size: 20px; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.totop.hidden { display: none; }
+body:not([data-tab="near"]) .totop { display: none; }
+body[data-tab="map"] .subchips { display: none; }
+@media (min-width: 700px) { .totop { right: 20px; } header .toprow .seg { flex-basis: 300px; } }
+
+/* 세부 종류 선택 버튼 + 아래에서 올라오는 목록 */
+.subsel { flex: 0 1 auto; min-width: 0; max-width: 58%; border: 1px solid #f0b8b0; background: #fdecea; color: #c0392b; border-radius: 14px; padding: 3px 10px;
+  font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subsel b { color: #922b21; margin-left: 2px; }
+.subsel.hidden { display: none; }
+header .row2 .refline { flex: 1; }
+.submenu { position: fixed; inset: 0; z-index: 1050; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; justify-content: center; }
+.submenu.hidden { display: none; }
+.subbox { background: #fff; width: min(100%, 560px); border-radius: 16px 16px 0 0; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); max-height: 75vh; overflow-y: auto; }
+.subhd { font-weight: 700; font-size: 15px; margin: 2px 4px 8px; }
+.subhd small { font-weight: 400; color: #888; font-size: 12px; }
+.subbox [data-sub] { display: flex; justify-content: space-between; align-items: center; width: 100%; border: 0; border-bottom: 1px solid #f0f0f0; background: none; padding: 13px 8px; font-size: 16px; text-align: left; }
+.subbox [data-sub] b { color: #c0392b; font-size: 14px; }
+.subbox [data-sub].on { background: #fdecea; border-radius: 8px; }
+.subclose { width: 100%; margin-top: 10px; border: 0; background: #eceff1; border-radius: 10px; padding: 12px; font-size: 15px; }
+body[data-tab="map"] .subsel { display: none; }
+/* 정보 탭: 추천 동선·운영표 */
+#info h3 { font-size: 15.5px; margin: 16px 0 6px; color: #c0392b; }
+#info table.route td.tm { width: 54px; font-weight: 700; color: #34495e; white-space: nowrap; vertical-align: top; }
+#info table.route td { line-height: 1.6; }
+#info a[data-open] { color: #1a5fb4; text-decoration: none; border-bottom: 1px dotted #1a5fb4; }
+#info .hr { display: inline-block; font-size: 11.5px; color: #1e7b34; background: #e9f7ee; border-radius: 6px; padding: 0 5px; margin-left: 2px; white-space: nowrap; }
+#info .hr.off, #info td.off { color: #b03a2e; background: #fdecea; }
+#info .mv { font-size: 12px; color: #777; white-space: nowrap; }
+#info .eat { font-size: 13px; margin-top: 4px; color: #444; }
+#info table.optab td, #info table.optab th { font-size: 12.5px; }
+#info table.optab td:nth-child(n+2) { white-space: nowrap; }
+#info table.optab { table-layout: fixed; width: 100%; }
+#info table.optab td:nth-child(n+2) { white-space: normal; word-break: keep-all; }
+#info table.optab th:first-child, #info table.optab td:first-child { width: 36%; }
+#info table { max-width: 100%; }
+#info { overflow-wrap: anywhere; }

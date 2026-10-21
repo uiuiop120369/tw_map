@@ -17,15 +17,16 @@
     dish: ['🥢', '대만·중국요리'], break: ['🥞', '대만식 아침'], bar: ['🍺', '술집·바'],
     cafe: ['☕', '카페'], drink: ['🧋', '차·밀크티'], ice: ['🍧', '빙수·더우화·아이스'], cake: ['🍰', '케이크·디저트'], bread: ['🍞', '빵집'], pine: ['🍍', '펑리수'] };
   const SUB_ORDER = { food: ['noodle', 'dump', 'rice', 'hotpot', 'sea', 'dish', 'break', 'bar'], cafe: ['cafe', 'drink', 'ice', 'cake', 'bread', 'pine'] };
+  const SUB_SHORT = { noodle: '면', dump: '만두', rice: '밥·간식', hotpot: '훠궈', sea: '해산물', dish: '요리', break: '아침', bar: '술집', cafe: '카페', drink: '차·음료', ice: '빙수', cake: '케이크', bread: '빵', pine: '펑리수' };
   const iconOf = it => (SUB[it.sub] || [])[0] || ICON[it.type] || '📍';
-  const SRC_ICON = { '미쉐린 빕구르망': '🏅', '구글 고평점': '⭐', '카페 추천': '📝', '펑리수 유명점': '🍍', '2026 신규': '🆕' };
+  const SRC_ICON = { '미쉐린 빕구르망': '🏅', '구글 고평점': '⭐', '카페 추천': '📝', '펑리수 유명점': '🍍', '2026 신규': '🆕', '대만 대표 체인': '🇹🇼' };
 
   // ---------- 저장 ----------
   const LS = {
     get(k, d) { try { return JSON.parse(localStorage.getItem('tw_' + k)) ?? d; } catch (e) { return d; } },
     set(k, v) { localStorage.setItem('tw_' + k, JSON.stringify(v)); }
   };
-  const S = Object.assign({ city: '전체', type: 'all', openOnly: true, when: 'now', alertOn: false, radius: 300,
+  const S = Object.assign({ city: '전체', type: 'all', openOnly: true, when: 'now', locOn: true, alertOn: false, radius: 300,
     atypes: ['food', 'cafe', 'shop', 'sight'], wakeOn: false, zoom: 1, mapType: 'osm', poiOn: true }, LS.get('settings', {}));
   const saveS = () => LS.set('settings', S);
   let fav = new Set(LS.get('fav', []));
@@ -111,8 +112,13 @@
     return 2 * R * Math.asin(Math.sqrt(h));
   }
   const fmtD = d => d < 1 ? Math.round(d * 1000) + 'm' : d.toFixed(1) + 'km';
+  // 내 위치를 거리 기준으로 쓸지: 위치 사용이 켜져 있고, 타이난·가오슝 근처(60km 안)에 있을 때만
+  function tripPos() {
+    if (!S.locOn || !myPos) return null;
+    return Object.values(D.hotels).some(h => km(myPos, h) < 60) ? myPos : null;
+  }
   function refPoint(it) {
-    if (myPos) return { p: myPos, label: '내 위치' };
+    if (tripPos()) return { p: myPos, label: '내 위치' };
     const h = D.hotels[it ? it.city : (S.city === '타이난' ? '타이난' : '가오슝')];
     return { p: h, label: h.name };
   }
@@ -137,7 +143,7 @@
   // ---------- 목록 ----------
   function rowHTML(x) {
     const it = x.it;
-    const src = it.src === '미쉐린 빕구르망' ? '🏅' : (it.src === '2026 신규' ? '🆕' : '');
+    const src = it.src === '미쉐린 빕구르망' ? '🏅' : (it.src === '2026 신규' ? '🆕' : (it.src === '대만 대표 체인' ? '🇹🇼' : ''));
     const rate = it.rating ? `⭐${it.rating}` : '';
     return `<div class="item" data-id="${it.id}"><div class="ic">${iconOf(it)}</div>
       <div class="tx"><div class="nm">${esc(it.name)} ${src}${it.caution ? ' <span class="cau">⚠</span>' : ''}</div>
@@ -145,19 +151,54 @@
       <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span>${myRsv[it.id] ? ` <span class="rsvd">🎫 예약 ${esc(myRsv[it.id].w || '')}</span>` : (it.rsv ? ' <span class="rsvok">📅 예약</span>' : '')}</div></div>
       <div class="rt"><button class="heart" data-heart="${it.id}" aria-label="찜">${fav.has(it.id) ? '❤️' : '🤍'}</button><div class="dist">${fmtD(x.d)}</div></div></div>`;
   }
+  // 거리 기준 안내: [짧은 문구, 눌렀을 때 설명]
+  function refText() {
+    if (tripPos()) return ['📍 내 위치에서 거리', '지금 내 위치에서 가게까지 거리예요. 가까운 순으로 보여줘요.'];
+    if (!S.locOn) return ['🏨 숙소에서 거리 (위치 꺼짐)', '설정에서 ‘📍 내 위치 사용’이 꺼져 있어서 숙소에서 잰 거리를 보여줘요.'];
+    if (myPos) return ['🏨 숙소에서 거리 · 도착하면 내 위치로', '지금은 타이난·가오슝에서 멀리 있어서(한국 등) 숙소에서 잰 거리를 보여줘요. 현지에 도착하면 자동으로 내 위치 기준으로 바뀌어요.'];
+    return ['🏨 숙소에서 거리 (위치 허용 안 함)', '위치를 허용하지 않아서 숙소에서 잰 거리를 보여줘요. 설정 → ‘📍 내 위치 사용’에서 허용할 수 있어요.'];
+  }
+  $('#refline').addEventListener('click', () => toast(refText()[1]));
+  let subGroups = null, subSeen = new Set();
+  // 고정된 세부 종류 버튼 줄: 같은 종류가 도시별로 나뉘어 있으면 개수를 합치고, 누르면 첫 묶음으로 이동
+  let subMap = null, subCur = null;
+  function subLabel(k) { return `${SUB[k][0]} ${SUB[k][1]} <b>${subMap.get(k).n}</b> ▾`; }
+  function drawSubChips() {
+    const btn = $('#subSel');
+    if (!SUB_ORDER[S.type] || !subGroups || !subGroups.length) { btn.classList.add('hidden'); subMap = null; return; }
+    subMap = new Map();
+    for (const [k, n, tag] of subGroups) { const v = subMap.get(k) || { n: 0, tag }; v.n += n; subMap.set(k, v); }
+    const ord = SUB_ORDER[S.type].filter(k => subMap.has(k));
+    if (!subMap.has(subCur)) subCur = ord[0];
+    btn.innerHTML = subLabel(subCur);
+    btn.classList.remove('hidden');
+    $('#subMenu .subbox').innerHTML = `<div class="subhd">${S.type === 'food' ? '🍜 음식' : '☕ 카페·빵집'} 세부 종류 <small>(누르면 그 종류로 이동)</small></div>`
+      + ord.map(k => `<button data-jump="sub-${subMap.get(k).tag}${k}" data-sub="${k}"><span>${SUB[k][0]} ${SUB[k][1]}</span><b>${subMap.get(k).n}곳</b></button>`).join('')
+      + '<button class="subclose" data-subclose>닫기</button>';
+  }
+  $('#subSel').addEventListener('click', () => {
+    $$('#subMenu [data-sub]').forEach(b => b.classList.toggle('on', b.dataset.sub === subCur));
+    $('#subMenu').classList.remove('hidden');
+  });
+  $('#subMenu').addEventListener('click', e => {
+    if (e.target === $('#subMenu') || e.target.closest('[data-subclose]') || e.target.closest('[data-jump]')) $('#subMenu').classList.add('hidden');
+    const j = e.target.closest('[data-sub]'); if (j && subMap) { subCur = j.dataset.sub; $('#subSel').innerHTML = subLabel(subCur); }
+  });
   function renderList() {
+    subGroups = null; subSeen = new Set();
     const t = twNow();
     const L = filtered();
-    const ref = myPos ? '📍 내 위치 기준' : `🏨 숙소 기준 (위치 권한을 허용하면 내 위치 기준)`;
-    $('#refline').innerHTML = `${ref} · ${L.length}곳` + (S.when !== 'now' ? `<div class="preview">⏱ 미리보기: ${esc(t.label)} 기준 (설정에서 ‘지금’으로 바꾸기)</div>` : '');
-    if (!L.length) { $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">목록 오른쪽의 🤍를 누르면 여기에 모여요.</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>'); return; }
-    if (!myPos && S.city === '전체') {
+    const ref = refText();
+    $('#refline').innerHTML = `${L.length}곳 · ${ref[0]}` + (S.when !== 'now' ? `<div class="preview">⏱ 미리보기: ${esc(t.label)} 기준 (설정에서 ‘지금’으로 바꾸기)</div>` : '');
+    if (!L.length) { subGroups = null; drawSubChips(); $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">목록 오른쪽의 🤍를 누르면 여기에 모여요.</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>'); return; }
+    if (!tripPos() && S.city === '전체') {
       // 위치가 없으면 도시별로 나눠서 각 숙소 기준으로 보여줌
       const order = twNow().label === '지금' ? ['가오슝', '타이난'] : (S.when < '2026-11-14T13:00' ? ['타이난', '가오슝'] : ['가오슝', '타이난']);
       $('#list').innerHTML = order.map(c => { const LL = L.filter(x => x.it.city === c); return LL.length ? `<div class="sec">${c === '타이난' ? '🏯' : '🌉'} ${c} · ${esc(D.hotels[c].name)} 기준 (${LL.length}곳)</div>` + groupHTML(LL, c) : ''; }).join('');
-      return;
+      drawSubChips(); return;
     }
     $('#list').innerHTML = groupHTML(L, '');
+    drawSubChips();
   }
   // 음식·카페 버튼을 눌렀을 때는 세부 종류별로 묶고(종류 안에서는 가까운 순), 맨 위에 종류 바로가기 줄을 보여줌
   function groupHTML(L, tag) {
@@ -165,9 +206,24 @@
     if (!ord) return L.slice(0, 200).map(rowHTML).join('');
     const G = ord.map(k => [k, L.filter(x => x.it.sub === k)]).filter(g => g[1].length);
     const rest = L.filter(x => !ord.includes(x.it.sub));
-    const jump = `<div class="subjump">${G.map(([k, X]) => `<button data-jump="sub-${tag}${k}">${SUB[k][0]} ${SUB[k][1]} <b>${X.length}</b></button>`).join('')}</div>`;
-    return jump + G.map(([k, X]) => `<div class="subsec" id="sub-${tag}${k}">${SUB[k][0]} ${SUB[k][1]} <small>(${X.length}곳 · 가까운 순)</small></div>` + X.map(rowHTML).join('')).join('') + rest.map(rowHTML).join('');
+    if (!tag || !subSeen.has(tag)) { subSeen.add(tag); subGroups = (subGroups || []).concat(G.map(([k, X]) => [k, X.length, tag])); }
+    return G.map(([k, X]) => `<div class="subsec" id="sub-${tag}${k}">${SUB[k][0]} ${SUB[k][1]} <small>(${X.length}곳 · 가까운 순)</small></div>` + X.map(rowHTML).join('')).join('') + rest.map(rowHTML).join('');
   }
+  let scrollT = null;
+  window.addEventListener('scroll', () => {
+    if (scrollT) return;
+    scrollT = setTimeout(() => {
+      scrollT = null;
+      $('#toTop').classList.toggle('hidden', !(activeTab === 'near' && window.scrollY > 500));
+      if (!subMap) return;
+      const hh = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hh')) || 160) + 12;
+      let cur = null;
+      for (const el of $$('.subsec')) { if (el.getBoundingClientRect().top <= hh) cur = el.id.replace(/^sub-(타이난|가오슝)?/, ''); else break; }
+      cur = cur || SUB_ORDER[S.type].find(k => subMap.has(k));
+      if (cur !== subCur && subMap.has(cur)) { subCur = cur; $('#subSel').innerHTML = subLabel(cur); }
+    }, 120);
+  }, { passive: true });
+  $('#toTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
   document.addEventListener('click', e => {
     const j = e.target.closest('[data-jump]'); if (!j) return;
     const el = document.getElementById(j.dataset.jump); if (!el) return;
@@ -186,7 +242,7 @@
     const srcCls = it.src === '미쉐린 빕구르망' ? 'mic' : (it.src ? 'hi' : 'cf');
     const days = (TRIP_DAYS[it.city] || []).map(([lab, dy]) => { const h = dayHours(it, dy); return `<td class="${h === '휴무' ? 'off' : 'on'}"><b>${lab}</b><br>${esc(it.periods.length ? h : '정보 없음')}</td>`; }).join('');
     const menu = (it.menu || []).filter(m => m.i).map(m => `<tr><td>${esc(m.i)}</td><td>${esc(m.p)}</td></tr>`).join('');
-    const walk = d <= 1.2 ? `도보 약 ${Math.round(d * 1.35 * 1000 / 75)}분` : `택시·우버 약 ${Math.round(d * 1.35 / 22 * 60 + 3)}분`;
+    const walk = d <= 1.2 ? `도보 약 ${Math.round(d * 1.35 * 1000 / 75)}분` : `택시·우버 약 ${Math.round(d * 1.3 / (d < 4 ? 22 : d < 10 ? 28 : 40) * 60 + 3)}분`;
     $('#sheetIn').innerHTML = `<button class="close" data-x>✕</button>
       <h3>${iconOf(it)} ${esc(it.name)}</h3><div class="zh">${esc(it.zh)}</div>
       <div class="badges"><span class="badge">${esc(it.cat)}</span>${it.cuisine ? `<span class="badge">${esc(it.cuisine)}</span>` : ''}${it.src ? `<span class="badge ${srcCls}">${SRC_ICON[it.src] || ''} ${esc(it.src)}</span>` : ''}${it.b19 ? `<span class="badge cf">📝 먹을거리 게시판 추천 ${it.b19}건</span>` : ''}</div>
@@ -403,7 +459,8 @@
   }
   function getPos(ask) {
     if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(onPos, err => { if (ask) toast('위치를 가져오지 못했어요. 휴대폰 위치(GPS)와 브라우저 위치 권한을 확인해 주세요.'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: ask ? 0 : 20000 });
+    if (!S.locOn) { if (ask) toast('설정에서 ‘📍 내 위치 사용’을 켜 주세요.'); return; }
+    navigator.geolocation.getCurrentPosition(onPos, err => { if (ask) { if (err && err.code === 1) showLocAsk('denied'); else toast('위치를 가져오지 못했어요. 휴대폰 위치(GPS)가 켜져 있는지 확인해 주세요.'); } updatePerm(); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: ask ? 0 : 20000 });
   }
 
   // ---------- 근처 알림 ----------
@@ -437,18 +494,57 @@
     }
     LS.set('alerted', alerted);
   }
-  async function startWatch() {
+  // 위치 추적: ‘내 위치 사용’이 켜져 있으면 계속 따라감 (근처 알림과 별개)
+  function startWatch() {
     if (!navigator.geolocation) { toast('이 브라우저는 위치 기능을 지원하지 않아요.'); return; }
-    if ('Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) { } }
-    if (watchId == null) watchId = navigator.geolocation.watchPosition(onPos, () => { }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
+    if (watchId == null) watchId = navigator.geolocation.watchPosition(p => { onPos(p); updatePerm(); }, err => { if (err && err.code === 1) stopWatch(); }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
     updatePerm();
   }
   function stopWatch() { if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; } updatePerm(); }
+  async function askNotify() {
+    if ('Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) { } }
+    updatePerm();
+  }
+  let geoPerm = 'unknown';
+  async function readGeoPerm() {
+    try {
+      const st = await navigator.permissions.query({ name: 'geolocation' }); geoPerm = st.state;
+      st.onchange = () => { geoPerm = st.state; updatePerm(); if (geoPerm === 'granted') { hideLocAsk(); if (S.locOn) startWatch(); } };
+    } catch (e) { geoPerm = 'unknown'; }
+    return geoPerm;
+  }
   function updatePerm() {
     const n = 'Notification' in window ? Notification.permission : '지원 안 함';
     const nk = { granted: '허용됨', denied: '차단됨 (브라우저 설정에서 허용 필요)', default: '아직 묻지 않음' }[n] || n;
-    $('#permState').innerHTML = `알림 권한: <b>${nk}</b> · 위치 추적: <b>${watchId != null ? '작동 중' : '꺼짐'}</b>${S.when !== 'now' ? '<br>⚠ 기준 시각이 ‘지금’이 아니면 알림이 멈춰요.' : ''}`;
+    const gk = { granted: '허용됨', denied: '차단됨', prompt: '아직 묻지 않음', unknown: myPos ? '허용됨' : '확인 중' }[geoPerm] || geoPerm;
+    const ls = $('#locState');
+    if (ls) ls.innerHTML = `위치 권한: <b>${gk}</b> · 위치 추적: <b>${watchId != null ? '작동 중' : '꺼짐'}</b>`
+      + (myPos && S.locOn && !tripPos() ? '<br>지금은 타이난·가오슝 밖이라 거리는 숙소 기준으로 보여줘요.' : '')
+      + (geoPerm === 'denied' ? '<br><a href="#" id="locHelp">위치 허용 방법 보기</a>' : '');
+    $('#permState').innerHTML = `알림 권한: <b>${nk}</b>` + (!S.locOn ? '<br>⚠ 근처 알림은 ‘📍 내 위치 사용’이 켜져 있어야 작동해요.' : '') + (S.when !== 'now' ? '<br>⚠ 기준 시각이 ‘지금’이 아니면 알림이 멈춰요.' : '');
   }
+  // 접속 시 위치 허용 안내 (아직 허용 전이거나 차단 상태일 때)
+  let locAskDone = false;   // 안내창에서 이미 버튼을 눌렀으면 다시 띄우지 않음
+  function showLocAsk(state) {
+    const denied = state === 'denied';
+    if (!denied && (locAskDone || myPos || geoPerm === 'granted')) return;
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const how = ios ? '아이폰: <b>설정 → 개인정보 보호 및 보안 → 위치 서비스</b>를 켜고, 사용하는 브라우저(Safari 웹 사이트 등)를 <b>「앱을 사용하는 동안」</b>으로 바꾼 뒤 이 화면을 새로고침하세요.'
+      : '안드로이드 크롬: 주소창 왼쪽 <b>아이콘(⚙ 또는 자물쇠) → 권한 → 위치 → 허용</b>을 누른 뒤 새로고침하세요. 휴대폰 위치(GPS)도 켜져 있어야 해요.';
+    $('#locAsk').innerHTML = `<div class="locBox">
+      <h3>📍 내 위치를 사용할까요?</h3>
+      <p>허용하면 가게까지 거리와 가까운 순서를 <b>지금 내 위치 기준</b>으로 보여줘요. 허용하지 않으면 <b>숙소 기준</b>으로 보여줘요.<br><small>위치는 이 휴대폰 안에서만 쓰이고 어디에도 보내지 않아요.</small></p>
+      ${denied ? `<p class="warn">⚠ 지금 위치 권한이 <b>차단</b>되어 있어요.<br>${how}</p>` : ''}
+      <div class="btnrow">${denied ? '' : '<button class="btn green" data-locyes>📍 위치 허용</button>'}<button class="btn gray" data-locno>${denied ? '닫기' : '나중에'}</button></div>
+    </div>`;
+    $('#locAsk').classList.remove('hidden');
+  }
+  function hideLocAsk() { $('#locAsk').classList.add('hidden'); }
+  $('#locAsk').addEventListener('click', e => {
+    if (e.target.closest('[data-locyes]')) { locAskDone = true; hideLocAsk(); S.locOn = true; saveS(); $('#locOn').checked = true; startWatch(); getPos(true); }
+    else if (e.target.closest('[data-locno]') || e.target === $('#locAsk')) { locAskDone = true; hideLocAsk(); sessionStorage.setItem('locAskShown', '1'); }
+  });
+  document.addEventListener('click', e => { if (e.target.closest('#locHelp')) { e.preventDefault(); showLocAsk('denied'); } });
   let wakeLock = null;
   async function setWake(on) {
     try {
@@ -482,7 +578,7 @@
   function refresh() { if (activeTab === 'near') renderList(); if (activeTab === 'map') renderMap(); }
   $$('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $$('#citySeg button').forEach(b => { b.classList.toggle('on', b.dataset.city === S.city); b.addEventListener('click', () => { S.city = b.dataset.city; saveS(); $$('#citySeg button').forEach(x => x.classList.toggle('on', x === b)); refresh(); centerCity(); }); });
-  $$('#typeChips button').forEach(b => { b.classList.toggle('on', b.dataset.t === S.type); b.addEventListener('click', () => { S.type = b.dataset.t; saveS(); $$('#typeChips button').forEach(x => x.classList.toggle('on', x === b)); refresh(); }); });
+  $$('#typeChips button').forEach(b => { b.classList.toggle('on', b.dataset.t === S.type); b.addEventListener('click', () => { S.type = b.dataset.t; saveS(); $$('#typeChips button').forEach(x => x.classList.toggle('on', x === b)); subCur = null; window.scrollTo(0, 0); refresh(); }); });
   $('#openOnly').checked = S.openOnly;
   $('#openOnly').addEventListener('change', e => { S.openOnly = e.target.checked; saveS(); refresh(); });
   $('#when').innerHTML = PRESETS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
@@ -493,7 +589,18 @@
 
   // 설정
   $('#alertOn').checked = S.alertOn;
-  $('#alertOn').addEventListener('change', e => { S.alertOn = e.target.checked; saveS(); S.alertOn ? startWatch() : stopWatch(); });
+  $('#alertOn').addEventListener('change', e => {
+    S.alertOn = e.target.checked;
+    if (S.alertOn && !S.locOn) { S.locOn = true; $('#locOn').checked = true; startWatch(); toast('근처 알림은 내 위치가 필요해서 ‘📍 내 위치 사용’도 켰어요.'); }
+    saveS(); if (S.alertOn) askNotify(); updatePerm();
+  });
+  $('#locOn').checked = S.locOn;
+  $('#locOn').addEventListener('change', e => {
+    S.locOn = e.target.checked;
+    if (S.locOn) { startWatch(); getPos(true); }
+    else { stopWatch(); if (S.alertOn) { S.alertOn = false; $('#alertOn').checked = false; toast('위치를 끄면 근처 알림도 꺼져요.'); } }
+    saveS(); refresh(); updatePerm();
+  });
   $('#radius').value = String(S.radius);
   $('#radiusTxt').textContent = S.radius + 'm';
   $('#radius').addEventListener('change', e => { S.radius = Number(e.target.value); $('#radiusTxt').textContent = S.radius + 'm'; saveS(); });
@@ -524,7 +631,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261020e').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261021l').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
@@ -561,8 +668,14 @@
   // 시작
   tick();
   showTab('near');
-  getPos(false);
-  if (S.alertOn) startWatch();
+  // 시작: 위치 사용이 켜져 있으면 권한 상태를 보고 바로 추적하거나 허용 안내를 띄움
+  (async () => {
+    if (!S.locOn || !navigator.geolocation) { updatePerm(); return; }
+    const st = await readGeoPerm();
+    if (st === 'granted') startWatch();
+    else if (!sessionStorage.getItem('locAskShown')) showLocAsk(st === 'denied' ? 'denied' : 'prompt');
+    updatePerm();
+  })();
   if (S.wakeOn) setWake(true);
   const h = location.hash.slice(1); if (BY_ID[h]) openCard(h);
   const qt = new URLSearchParams(location.search).get('tab'); if (qt) showTab(qt);
