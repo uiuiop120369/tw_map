@@ -131,10 +131,19 @@
     if (t === 'fav') return fav.has(it.id);
     return it.type === t;
   }
+  // 검색어 비교용: 띄어쓰기·괄호·기호를 없애고 소문자로
+  const normQ = s => (s || '').toLowerCase().replace(/[\s()（）\[\]【】·・,，.。\-_/|｜'"「」『』~!！?？&]+/g, '');
+  function qWords() { return ($('#q').value || '').trim().split(/\s+/).map(normQ).filter(Boolean); }
   function filtered() {
-    const t = twNow(), q = ($('#q').value || '').trim().toLowerCase();
+    const t = twNow(), W = qWords();
+    // 검색할 때는 도시·종류·영업 여부와 상관없이 전체에서 찾음 (단어를 여러 개 넣으면 모두 들어간 곳)
+    if (W.length) {
+      return ITEMS
+        .filter(it => { const h = normQ([it.name, it.zh, it.cuisine, it.cat, it.city, it.addr, (SUB[it.sub] || [])[1]].join(' ')); return W.every(w => h.includes(w)); })
+        .map(it => ({ it, oi: openInfo(it, t), d: km(refPoint(it).p, it) }))
+        .sort((a, b) => a.d - b.d);
+    }
     return ITEMS.filter(it => (S.city === '전체' || it.city === S.city) && typeMatch(it, S.type))
-      .filter(it => !q || [it.name, it.zh, it.cuisine, it.cat].join(' ').toLowerCase().includes(q))
       .map(it => ({ it, oi: openInfo(it, t), d: km(refPoint(it).p, it) }))
       .filter(x => S.type === 'fav' || !S.openOnly || x.oi.st === 'open' || x.oi.st === 'closing' || (x.oi.st === 'unknown' && (x.it.type === 'sight' || x.it.type === 'market')))
       .sort((a, b) => a.d - b.d);
@@ -165,7 +174,7 @@
   function subLabel(k) { return `${SUB[k][0]} ${SUB[k][1]} <b>${subMap.get(k).n}</b> ▾`; }
   function drawSubChips() {
     const btn = $('#subSel');
-    if (!SUB_ORDER[S.type] || !subGroups || !subGroups.length) { btn.classList.add('hidden'); subMap = null; return; }
+    if (!SUB_ORDER[S.type] || qWords().length || !subGroups || !subGroups.length) { btn.classList.add('hidden'); subMap = null; return; }
     subMap = new Map();
     for (const [k, n, tag] of subGroups) { const v = subMap.get(k) || { n: 0, tag }; v.n += n; subMap.set(k, v); }
     const ord = SUB_ORDER[S.type].filter(k => subMap.has(k));
@@ -189,8 +198,8 @@
     const t = twNow();
     const L = filtered();
     const ref = refText();
-    $('#refline').innerHTML = `${L.length}곳 · ${ref[0]}` + (S.when !== 'now' ? `<div class="preview">⏱ 미리보기: ${esc(t.label)} 기준 (설정에서 ‘지금’으로 바꾸기)</div>` : '');
-    if (!L.length) { subGroups = null; drawSubChips(); $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">목록 오른쪽의 🤍를 누르면 여기에 모여요.</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>'); return; }
+    $('#refline').innerHTML = (qWords().length ? `🔍 검색 ${L.length}곳 (전체 지역·영업 여부 상관없이) · ` : `${L.length}곳 · `) + ref[0] + (S.when !== 'now' ? `<div class="preview">⏱ 미리보기: ${esc(t.label)} 기준 (설정에서 ‘지금’으로 바꾸기)</div>` : '');
+    if (!L.length) { subGroups = null; drawSubChips(); $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">목록 오른쪽의 🤍를 누르면 여기에 모여요.</div>' : (qWords().length ? '<div class="empty">검색 결과가 없어요.<br>한글 이름 일부나 한자 일부만 넣어 보세요. (예: 우육면, 牛老二)</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>')); return; }
     if (!tripPos() && S.city === '전체') {
       // 위치가 없으면 도시별로 나눠서 각 숙소 기준으로 보여줌
       const order = twNow().label === '지금' ? ['가오슝', '타이난'] : (S.when < '2026-11-14T13:00' ? ['타이난', '가오슝'] : ['가오슝', '타이난']);
@@ -202,7 +211,7 @@
   }
   // 음식·카페 버튼을 눌렀을 때는 세부 종류별로 묶고(종류 안에서는 가까운 순), 맨 위에 종류 바로가기 줄을 보여줌
   function groupHTML(L, tag) {
-    const ord = SUB_ORDER[S.type];
+    const ord = qWords().length ? null : SUB_ORDER[S.type];
     if (!ord) return L.slice(0, 200).map(rowHTML).join('');
     const G = ord.map(k => [k, L.filter(x => x.it.sub === k)]).filter(g => g[1].length);
     const rest = L.filter(x => !ord.includes(x.it.sub));
@@ -668,7 +677,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261022b').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261023b').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
