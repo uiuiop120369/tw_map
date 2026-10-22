@@ -266,3 +266,9 @@ body[data-tab="map"] .subsel { display: none; }
 /* 인플루언서 추천 */
 .inflBox { background: #f3e8fd; border-left: 4px solid #8e44ad; border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 13.5px; line-height: 1.5; }
 .item .infl { font-size: 12px; }
+
+/* 구글 지도 키 입력 */
+#keyAsk.hidden { display: none; }
+#keyAsk input { width: 100%; box-sizing: border-box; font-size: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin: 6px 0; font-family: monospace; }
+#keyAsk .warn.hidden { display: none; }
+button.mini { border: 1px solid #ccc; background: #fff; border-radius: 12px; padding: 2px 9px; font-size: 12.5px; margin-left: 2px; }

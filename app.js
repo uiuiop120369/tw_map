@@ -333,14 +333,48 @@
   let cur = 'osm', gLoading = false;
   const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a></div>`;
   function centerOf() { return S.city === '타이난' ? D.hotels['타이난'] : D.hotels['가오슝']; }
+  // 구글 지도 키: 이 휴대폰에만 저장 (공개 소스에는 없음)
+  const mapsKey = () => LS.get('mapskey', '') || window.MAPS_KEY || '';
+  function keyTail() { const k = mapsKey(); return k ? '••••' + k.slice(-4) : ''; }
+  function askKey() {
+    return new Promise(done => {
+      $('#keyAsk').innerHTML = `<div class="locBox">
+        <h3>🔑 구글 지도 키 입력</h3>
+        <p>한국어 구글 지도를 쓰려면 키가 필요해요. <b>받은 키를 붙여넣어 주세요.</b><br><small>키는 이 휴대폰에만 저장되고 다른 곳에 보내지 않아요. 키가 없어도 무료 지도와 다른 기능은 모두 쓸 수 있어요.</small></p>
+        <input id="keyIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="AIza로 시작하는 키">
+        <p class="warn hidden" id="keyErr">키 모양이 맞지 않아요. AIza로 시작하는 39자예요.</p>
+        <div class="btnrow"><button class="btn green" data-keysave>저장</button><button class="btn gray" data-keyx>취소</button></div>
+      </div>`;
+      $('#keyAsk').classList.remove('hidden');
+      setTimeout(() => $('#keyIn').focus(), 50);
+      $('#keyAsk').querySelector('[data-keysave]').onclick = () => {
+        const k = $('#keyIn').value.trim();
+        if (!/^AIza[0-9A-Za-z_\-]{35}$/.test(k)) { $('#keyErr').classList.remove('hidden'); return; }
+        LS.set('mapskey', k); $('#keyAsk').classList.add('hidden'); keyState(); done(true);
+      };
+      $('#keyAsk').querySelector('[data-keyx]').onclick = () => { $('#keyAsk').classList.add('hidden'); done(false); };
+    });
+  }
+  function keyState() {
+    const el = $('#keyState'); if (!el) return;
+    el.innerHTML = mapsKey() ? `구글 지도 키: <b>입력됨</b> (${keyTail()}) <button class="mini" data-keychg>변경</button> <button class="mini" data-keydel>지우기</button>`
+      : `구글 지도 키: <b>없음</b> <button class="mini" data-keychg>키 입력</button>`;
+  }
+  document.addEventListener('click', async e => {
+    if (e.target.closest('[data-keychg]')) {
+      const had = !!(window.google && google.maps);
+      if (await askKey()) toast(had ? '새 키는 앱을 다시 열면 적용돼요.' : '키를 저장했어요. 지도 탭에서 [구글 지도로 보기]를 눌러 보세요.');
+    }
+    if (e.target.closest('[data-keydel]')) { LS.set('mapskey', ''); if (cur === 'google') useMap('osm'); keyState(); toast('이 휴대폰에서 키를 지웠어요.'); }
+  });
   function loadGoogle() {
     return new Promise((ok, fail) => {
-      if (!window.MAPS_KEY) return fail('no key');
+      if (!mapsKey()) return fail('no key');
       if (window.google && google.maps) return ok();
       window.__gmReady = ok;
-      window.gm_authFailure = () => { fail('auth'); toast('구글 지도를 불러오지 못해 무료 지도로 보여드려요.'); useMap('osm'); };
+      window.gm_authFailure = () => { fail('auth'); toast('키가 맞지 않거나 이 사이트에서 쓸 수 없는 키예요. 설정 → 지도에서 키를 다시 입력해 주세요. 지금은 무료 지도로 보여드려요.'); useMap('osm'); };
       const s = document.createElement('script');
-      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(window.MAPS_KEY)}&language=ko&region=TW&callback=__gmReady&loading=async`;
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsKey())}&language=ko&region=TW&callback=__gmReady&loading=async`;
       s.async = true; s.onerror = () => fail('load');
       document.head.appendChild(s);
       setTimeout(() => fail('timeout'), 12000);
@@ -376,7 +410,8 @@
   }
   async function useMap(k) {
     if (k === 'google') {
-      if (!window.MAPS_KEY) { toast('구글 지도 키가 없어 무료 지도만 쓸 수 있어요.'); k = 'osm'; }
+      if (!mapsKey() && !(await askKey())) { toast('키가 없으면 무료 지도로 보여드려요.'); k = 'osm'; }
+      if (k === 'osm') { }
       else if (!E.google.map) {
         if (gLoading) return;
         gLoading = true; $('#mapSwitch').textContent = '구글 지도 불러오는 중…';
@@ -595,6 +630,7 @@
     if (S.alertOn && !S.locOn) { S.locOn = true; $('#locOn').checked = true; startWatch(); toast('근처 알림은 내 위치가 필요해서 ‘📍 내 위치 사용’도 켰어요.'); }
     saveS(); if (S.alertOn) askNotify(); updatePerm();
   });
+  keyState();
   $('#locOn').checked = S.locOn;
   $('#locOn').addEventListener('change', e => {
     S.locOn = e.target.checked;
@@ -632,7 +668,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261022a').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261022b').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 

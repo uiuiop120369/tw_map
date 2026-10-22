@@ -9,8 +9,8 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="lib/leaflet.css?v=20261022a">
-<link rel="stylesheet" href="style.css?v=20261022a">
+<link rel="stylesheet" href="lib/leaflet.css?v=20261022b">
+<link rel="stylesheet" href="style.css?v=20261022b">
 </head>
 <body>
 <header id="top">
@@ -89,6 +89,7 @@
     <div class="card">
       <b>🗺 지도</b>
       <div class="seg2" id="mapSeg"><button data-m="osm">무료 지도 (기본)</button><button data-m="google">구글 지도 (한국어)</button></div>
+      <p class="hint" id="keyState"></p>
       <label class="sw"><input type="checkbox" id="poiOn"><span>주변 가게·건물도 표시 (누르면 이름·주소, 구글맵 연결)</span></label>
       <p class="hint">지도 탭은 항상 <b>무료 지도</b>로 열려요(사용량 0). 지도 왼쪽 위 <b>[🇰🇷 구글 지도로 보기]</b>를 누를 때만 구글 지도를 불러오고, 앱을 켜 둔 동안은 처음 한 번만 사용량이 생겨요(무료 범위 안). '주변 가게·건물 표시'는 구글 지도에서 적용돼요.</p>
     </div>
@@ -125,13 +126,14 @@
 <div id="taxi" class="taxi hidden"></div>
 <div id="toast" class="toast hidden"></div>
 <div id="locAsk" class="locAsk hidden"></div>
+<div id="keyAsk" class="locAsk hidden"></div>
 <button id="toTop" class="totop hidden" aria-label="맨 위로">⬆</button>
 <div id="subMenu" class="submenu hidden"><div class="subbox"></div></div>
 
-<script src="lib/leaflet.js?v=20261022a"></script>
-<script src="config.js?v=20261022a"></script>
-<script src="phrases.js?v=20261022a"></script>
-<script src="data.js?v=20261022a"></script>
-<script src="app.js?v=20261022a"></script>
+<script src="lib/leaflet.js?v=20261022b"></script>
+<script src="config.js?v=20261022b"></script>
+<script src="phrases.js?v=20261022b"></script>
+<script src="data.js?v=20261022b"></script>
+<script src="app.js?v=20261022b"></script>
 </body>
 </html>

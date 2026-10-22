@@ -1,2 +1,3 @@
-// 구글 지도 키: 이 사이트(github.io)와 지도 기능에만 쓰도록 제한된 키
-window.MAPS_KEY = 'AIzaSyBsnvNJLkC26jEL2D5Qp7bB7_HU9dQWRHo';
+// 구글 지도 키는 보안을 위해 여기에 넣지 않습니다.
+// 앱에서 [구글 지도로 보기]를 처음 누를 때 키를 입력하면 그 휴대폰에만 저장돼요.
+window.MAPS_KEY = '';
