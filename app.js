@@ -152,11 +152,12 @@
   // ---------- 목록 ----------
   function rowHTML(x) {
     const it = x.it;
-    const src = it.src === '미쉐린 빕구르망' ? '🏅' : (it.src === '2026 신규' ? '🆕' : (it.src === '대만 대표 체인' ? '🇹🇼' : ''));
-    const rate = it.rating ? `⭐${it.rating}` : '';
+    const src = it.src === '2026 신규' ? '🆕' : (it.src === '대만 대표 체인' ? '🇹🇼' : '');
+    const mic = it.mic === 'bib' ? ' <span class="mic">🏅빕구르망</span>' : (it.mic === 'sel' ? ' <span class="mic sel">🍽미쉐린</span>' : '');
+    const rate = (it.rating ? `⭐${it.rating}` : '') + mic;
     return `<div class="item" data-id="${it.id}"><div class="ic">${iconOf(it)}</div>
       <div class="tx"><div class="nm">${esc(it.name)} ${src}${it.infl ? ' <span class="infl">📸</span>' : ''}${it.caution ? ' <span class="cau">⚠</span>' : ''}</div>
-      <div class="sub">${esc(it.cuisine || it.cat)} · ${esc(it.city)} ${rate}</div>
+      <div class="sub">${rate ? rate + ' · ' : ''}${esc(it.cuisine || it.cat)} · ${esc(it.city)}</div>
       <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span>${myRsv[it.id] ? ` <span class="rsvd">🎫 예약 ${esc(myRsv[it.id].w || '')}</span>` : (it.rsv ? ' <span class="rsvok">📅 예약</span>' : '')}</div></div>
       <div class="rt"><button class="heart" data-heart="${it.id}" aria-label="찜">${fav.has(it.id) ? '❤️' : '🤍'}</button><div class="dist">${fmtD(x.d)}</div></div></div>`;
   }
@@ -262,6 +263,7 @@
       <div class="btnrow"><button class="btn dark" data-fav>${fav.has(it.id) ? '❤️ 찜 해제' : '🤍 찜하기'}</button>
         <button class="btn gray" data-taxi>🚕 주소 크게 보기</button></div>
       ${rsvHTML(it)}
+      ${it.fc ? `<div class="fcBox">📖 <b>타이난 맛집 가이드 (Fucheng Table)</b><br>${esc(it.fc)}</div>` : ''}
       ${it.infl ? `<div class="inflBox">📸 <b>인플루언서 추천</b><br>${esc(it.infl)}</div>` : ''}
       ${it.caution ? `<div class="cauBox">⚠ <b>카페 후기 호불호</b><br>${esc(it.caution)}</div>` : ''}
       ${it.review ? `<div class="kv"><b>💬 후기 요약</b>${esc(it.review)}</div>` : ''}
@@ -677,7 +679,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261023b').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261108b').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
