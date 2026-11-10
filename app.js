@@ -27,7 +27,7 @@
     set(k, v) { localStorage.setItem('tw_' + k, JSON.stringify(v)); }
   };
   const S = Object.assign({ city: '전체', type: 'all', openOnly: true, when: 'now', locOn: true, alertOn: false, radius: 300,
-    atypes: ['food', 'cafe', 'shop', 'sight'], wakeOn: false, zoom: 1, mapType: 'osm', poiOn: true }, LS.get('settings', {}));
+    atypes: ['food', 'cafe', 'shop', 'sight'], wakeOn: false, zoom: 1, mapType: 'osm', poiOn: true, sort: 'dist', flt: [] }, LS.get('settings', {}));
   const saveS = () => LS.set('settings', S);
   let fav = new Set(LS.get('fav', []));
   let myRsv = LS.get('rsv', {});   // 내 예약: {가게id: {u: 예약확인 링크, w: '11/15 18:30'}}
@@ -134,19 +134,53 @@
   // 검색어 비교용: 띄어쓰기·괄호·기호를 없애고 소문자로
   const normQ = s => (s || '').toLowerCase().replace(/[\s()（）\[\]【】·・,，.。\-_/|｜'"「」『』~!！?？&]+/g, '');
   function qWords() { return ($('#q').value || '').trim().split(/\s+/).map(normQ).filter(Boolean); }
-  function filtered() {
+  // ---------- 정렬 · 배지 필터 ----------
+  const SORTS = { dist: ['📍', '가까운 순'], reviews: ['💬', '리뷰 많은 순'], rating: ['⭐', '별점 높은 순'] };
+  const FLTS = { rsv: ['📅', '온라인 예약 가능'], sel: ['🍽', '미쉐린 (셀렉티드)'], bib: ['🏅', '빕구르망'], infl: ['📸', '인플루언서 추천'], fc: ['📖', '타이난 맛집 가이드'] };
+  const hasF = (it, k) => k === 'rsv' ? !!it.rsv : k === 'sel' ? it.mic === 'sel' : k === 'bib' ? it.mic === 'bib' : !!it[k];
+  // 예약 가능은 '그리고', 추천 배지끼리는 '또는' (예: 빕구르망 또는 인플루언서)
+  function fltMatch(it) {
+    const f = S.flt || [];
+    if (f.includes('rsv') && !it.rsv) return false;
+    const b = f.filter(k => k !== 'rsv');
+    return !b.length || b.some(k => hasF(it, k));
+  }
+  // 별점 순: 리뷰가 너무 적은(100개 미만) 곳은 별점이 높아도 뒤로
+  function sorter(a, b) {
+    const A = a.it, B = b.it;
+    if (S.sort === 'reviews') return (B.reviews || 0) - (A.reviews || 0) || a.d - b.d;
+    if (S.sort === 'rating') return ((B.reviews || 0) >= 100) - ((A.reviews || 0) >= 100) || (B.rating || 0) - (A.rating || 0) || (B.reviews || 0) - (A.reviews || 0) || a.d - b.d;
+    return a.d - b.d;
+  }
+  const sortName = () => (SORTS[S.sort] || SORTS.dist)[1];
+  function filtered(noFlt) {
+    const L = baseList();
+    return (noFlt ? L : L.filter(x => fltMatch(x.it))).sort(sorter);
+  }
+  function baseList() {
     const t = twNow(), W = qWords();
     // 검색할 때는 도시·종류·영업 여부와 상관없이 전체에서 찾음 (단어를 여러 개 넣으면 모두 들어간 곳)
     if (W.length) {
       return ITEMS
         .filter(it => { const h = normQ([it.name, it.zh, it.cuisine, it.cat, it.city, it.addr, (SUB[it.sub] || [])[1]].join(' ')); return W.every(w => h.includes(w)); })
-        .map(it => ({ it, oi: openInfo(it, t), d: km(refPoint(it).p, it) }))
-        .sort((a, b) => a.d - b.d);
+        .map(it => ({ it, oi: openInfo(it, t), d: km(refPoint(it).p, it) }));
     }
     return ITEMS.filter(it => (S.city === '전체' || it.city === S.city) && typeMatch(it, S.type))
       .map(it => ({ it, oi: openInfo(it, t), d: km(refPoint(it).p, it) }))
-      .filter(x => S.type === 'fav' || !S.openOnly || x.oi.st === 'open' || x.oi.st === 'closing' || (x.oi.st === 'unknown' && (x.it.type === 'sight' || x.it.type === 'market')))
-      .sort((a, b) => a.d - b.d);
+      .filter(x => S.type === 'fav' || !S.openOnly || x.oi.st === 'open' || x.oi.st === 'closing' || (x.oi.st === 'unknown' && (x.it.type === 'sight' || x.it.type === 'market')));
+  }
+  function sortBtn() {
+    const n = (S.flt || []).length, on = n || S.sort !== 'dist';
+    $('#sortBtn').innerHTML = `⇅${n ? `<i>${n}</i>` : ''}`;
+    $('#sortBtn').classList.toggle('on', !!on);
+  }
+  function drawSortMenu() {
+    const base = filtered(true);
+    $('#sortMenu .subbox').innerHTML = `<div class="subhd">⇅ 정렬 <small>(종류별 묶음 안에서 적용)</small></div>`
+      + Object.entries(SORTS).map(([k, [ic, nm]]) => `<button data-sortk="${k}" class="${S.sort === k ? 'on' : ''}"><span>${ic} ${nm}</span><b>${S.sort === k ? '✓' : ''}</b></button>`).join('')
+      + `<div class="subhd" style="margin-top:14px">🔎 필터 <small>(여러 개 고르면: 예약 가능 + 추천 배지 중 하나라도)</small></div>`
+      + Object.entries(FLTS).map(([k, [ic, nm]]) => { const c = base.filter(x => hasF(x.it, k)).length; return `<button data-fltk="${k}" class="${(S.flt || []).includes(k) ? 'on' : ''}"><span>${(S.flt || []).includes(k) ? '☑' : '☐'} ${ic} ${nm}</span><b>${c}곳</b></button>`; }).join('')
+      + `<div class="sortfoot"><button class="subclose" data-sortreset>처음대로 (가까운 순·필터 없음)</button><button class="subclose ok" data-sortclose>닫기</button></div>`;
   }
 
   // ---------- 목록 ----------
@@ -169,6 +203,15 @@
     return ['🏨 숙소에서 거리 (위치 허용 안 함)', '위치를 허용하지 않아서 숙소에서 잰 거리를 보여줘요. 설정 → ‘📍 내 위치 사용’에서 허용할 수 있어요.'];
   }
   $('#refline').addEventListener('click', () => toast(refText()[1]));
+  $('#sortBtn').addEventListener('click', () => { drawSortMenu(); $('#sortMenu').classList.remove('hidden'); });
+  $('#sortMenu').addEventListener('click', e => {
+    const sk = e.target.closest('[data-sortk]'), fk = e.target.closest('[data-fltk]');
+    if (sk) S.sort = sk.dataset.sortk;
+    if (fk) { const f = new Set(S.flt || []); f.has(fk.dataset.fltk) ? f.delete(fk.dataset.fltk) : f.add(fk.dataset.fltk); S.flt = [...f]; }
+    if (e.target.closest('[data-sortreset]')) { S.sort = 'dist'; S.flt = []; }
+    if (sk || fk || e.target.closest('[data-sortreset]')) { saveS(); refresh(); drawSortMenu(); }
+    if (e.target === $('#sortMenu') || e.target.closest('[data-sortclose]')) $('#sortMenu').classList.add('hidden');
+  });
   let subGroups = null, subSeen = new Set();
   // 고정된 세부 종류 버튼 줄: 같은 종류가 도시별로 나뉘어 있으면 개수를 합치고, 누르면 첫 묶음으로 이동
   let subMap = null, subCur = null;
@@ -199,8 +242,10 @@
     const t = twNow();
     const L = filtered();
     const ref = refText();
-    $('#refline').innerHTML = (qWords().length ? `🔍 검색 ${L.length}곳 (전체 지역·영업 여부 상관없이) · ` : `${L.length}곳 · `) + ref[0] + (S.when !== 'now' ? `<div class="preview">⏱ 미리보기: ${esc(t.label)} 기준 (설정에서 ‘지금’으로 바꾸기)</div>` : '');
-    if (!L.length) { subGroups = null; drawSubChips(); $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">목록 오른쪽의 🤍를 누르면 여기에 모여요.</div>' : (qWords().length ? '<div class="empty">검색 결과가 없어요.<br>한글 이름 일부나 한자 일부만 넣어 보세요. (예: 우육면, 牛老二)</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>')); return; }
+    sortBtn();
+    const sf = (S.sort !== 'dist' ? ` · ${SORTS[S.sort][0]} ${sortName()}` : '') + ((S.flt || []).length ? ` · 필터 ${S.flt.map(k => FLTS[k][0]).join('')}` : '');
+    $('#refline').innerHTML = (qWords().length ? `🔍 검색 ${L.length}곳 (전체 지역·영업 여부 상관없이) · ` : `${L.length}곳 · `) + ref[0] + sf + (S.when !== 'now' ? `<div class="preview">⏱ 미리보기: ${esc(t.label)} 기준 (설정에서 ‘지금’으로 바꾸기)</div>` : '');
+    if (!L.length) { subGroups = null; drawSubChips(); $('#list').innerHTML = (S.type === 'fav' ? '<div class="empty">목록 오른쪽의 🤍를 누르면 여기에 모여요.</div>' : (qWords().length ? '<div class="empty">검색 결과가 없어요.<br>한글 이름 일부나 한자 일부만 넣어 보세요. (예: 우육면, 牛老二)</div>' : ((S.flt || []).length ? '<div class="empty">필터에 맞는 곳이 없어요.<br>⇅ 버튼에서 필터를 줄이거나 ‘영업 중만’을 꺼 보세요.</div>' : '<div class="empty">조건에 맞는 곳이 없어요.<br>‘지금 영업 중만’을 끄고 다시 보세요.</div>'))); return; }
     if (!tripPos() && S.city === '전체') {
       // 위치가 없으면 도시별로 나눠서 각 숙소 기준으로 보여줌
       const order = twNow().label === '지금' ? ['가오슝', '타이난'] : (S.when < '2026-11-14T13:00' ? ['타이난', '가오슝'] : ['가오슝', '타이난']);
@@ -217,7 +262,7 @@
     const G = ord.map(k => [k, L.filter(x => x.it.sub === k)]).filter(g => g[1].length);
     const rest = L.filter(x => !ord.includes(x.it.sub));
     if (!tag || !subSeen.has(tag)) { subSeen.add(tag); subGroups = (subGroups || []).concat(G.map(([k, X]) => [k, X.length, tag])); }
-    return G.map(([k, X]) => `<div class="subsec" id="sub-${tag}${k}">${SUB[k][0]} ${SUB[k][1]} <small>(${X.length}곳 · 가까운 순)</small></div>` + X.map(rowHTML).join('')).join('') + rest.map(rowHTML).join('');
+    return G.map(([k, X]) => `<div class="subsec" id="sub-${tag}${k}">${SUB[k][0]} ${SUB[k][1]} <small>(${X.length}곳 · ${sortName()})</small></div>` + X.map(rowHTML).join('')).join('') + rest.map(rowHTML).join('');
   }
   let scrollT = null;
   window.addEventListener('scroll', () => {
@@ -343,7 +388,13 @@
   const E = { osm: { map: null, items: [], me: null }, google: { map: null, items: [], me: null, info: null } };
   let cur = 'osm', gLoading = false;
   const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a></div>`;
-  function centerOf() { return S.city === '타이난' ? D.hotels['타이난'] : D.hotels['가오슝']; }
+  // 지도 첫 중심: 내 위치(현지에 있을 때) → 고른 도시 숙소 → '전체'면 날짜에 맞는 도시(11/14 13시 전 타이난, 뒤 가오슝)
+  function centerOf() {
+    const p = tripPos();
+    if (p && (S.city === '전체' || km(p, D.hotels[S.city]) < 30)) return p;
+    if (S.city !== '전체') return D.hotels[S.city];
+    return D.hotels[Date.now() < Date.parse('2026-11-14T13:00:00+08:00') ? '타이난' : '가오슝'];
+  }
   // 구글 지도 키: 이 휴대폰에만 저장 (공개 소스에는 없음)
   const mapsKey = () => LS.get('mapskey', '') || window.MAPS_KEY || '';
   function keyTail() { const k = mapsKey(); return k ? '••••' + k.slice(-4) : ''; }
@@ -667,6 +718,9 @@
   function applyZoom() {
     ['#top', '#tab-near', '#tab-talk', '#tab-info', '#tab-set', '#sheetIn', '#toast'].forEach(s => { const el = $(s); if (el) el.style.zoom = S.zoom; });
     $$('#fontSeg button').forEach(b => b.classList.toggle('on', Number(b.dataset.z) === Number(S.zoom)));
+    // 큰 글씨일 때 대만 시계를 제목 아래 줄로 (도시 버튼 공간 확보)
+    document.documentElement.dataset.big = Number(S.zoom) > 1 ? '1' : '';
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   }
   // 지도 종류·주변 가게 표시: 바꾸면 새로 불러오기
   $$('#mapSeg button').forEach(b => { b.classList.toggle('on', b.dataset.m === 'osm'); b.addEventListener('click', () => { if (cur === b.dataset.m) return; showTab('map'); useMap(b.dataset.m); }); });
@@ -679,7 +733,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261109a').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261110f').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 

@@ -278,3 +278,29 @@ button.mini { border: 1px solid #ccc; background: #fff; border-radius: 12px; pad
 .item .mic.sel { color: #6c3483; background: #f3e8fd; }
 
 .fcBox { background: #eaf4fb; border-left: 4px solid #2471a3; border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 13.5px; line-height: 1.5; }
+
+/* 정렬·필터 */
+.sortbtn { position: relative; font-weight: 700; }
+.sortbtn.on { background: #fdecea; color: #c0392b; border-color: #f5b7b1; }
+.sortbtn i { position: absolute; top: -4px; right: -4px; background: #c0392b; color: #fff; font-style: normal; font-size: 10.5px; min-width: 16px; height: 16px; line-height: 16px; border-radius: 8px; text-align: center; }
+.subbox [data-sortk], .subbox [data-fltk] { display: flex; justify-content: space-between; align-items: center; width: 100%; border: 0; border-bottom: 1px solid #f0f0f0; background: none; padding: 12px 8px; font-size: 15.5px; text-align: left; color: inherit; }
+.subbox [data-sortk] b, .subbox [data-fltk] b { color: #c0392b; font-size: 14px; }
+.subbox [data-sortk].on, .subbox [data-fltk].on { background: #fdecea; border-radius: 8px; }
+.sortfoot { display: flex; gap: 8px; }
+.sortfoot .subclose.ok { background: #c0392b; color: #fff; max-width: 34%; }
+.chiprow #sortBtn { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid #ccc; border-radius: 17px; background: #fff; font-size: 15px; padding: 0; margin-right: 6px; }
+.chiprow #sortBtn.on { background: #fdecea; color: #c0392b; border-color: #f5b7b1; }
+/* 작은 폰·큰 글씨: 도시 버튼이 두 줄로 깨지지 않게 (제목·시계가 대신 줄어듦) */
+header .toprow .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+header .toprow .seg { flex: 0 0 auto; }
+header .toprow .seg button { flex: 0 0 auto; white-space: nowrap; padding: 6px 9px; }
+@media (min-width: 700px) { header .toprow .seg { flex: 0 0 300px; } header .toprow .seg button { flex: 1 1 0; } }
+/* 휴대폰 가로(높이 낮음): 목록·회화·정보·설정에서는 위쪽 헤더가 스크롤과 함께 올라가 화면을 넓게 씀 */
+@media (orientation: landscape) and (max-height: 500px) {
+  body:not([data-tab="map"]) header { position: absolute; }
+}
+/* 정보 탭 표: 왼쪽 제목 칸은 단어 단위로 줄바꿈 (작은 폰에서 '숙/소'처럼 끊기지 않게) */
+#tab-info th { word-break: keep-all; overflow-wrap: anywhere; }
+/* 큰 글씨: 대만 시계를 제목 아래 줄로 (도시 버튼 공간 확보) */
+html[data-big="1"] header .title { line-height: 1.15; }
+html[data-big="1"] header .title small { display: block; margin-left: 0; font-size: 10.5px; }
