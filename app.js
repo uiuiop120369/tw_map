@@ -305,6 +305,7 @@
       ${it.rating ? `<div class="kv">⭐ 구글 평점 <b style="display:inline">${it.rating}</b> · 리뷰 ${Number(it.reviews || 0).toLocaleString()}개</div>` : ''}
       <div class="btnrow"><a class="btn" href="${it.map}" target="_blank" rel="noopener">📍 구글맵 열기<br><small>리뷰·사진</small></a>
         <a class="btn green" href="${dirUrl(it, false)}" target="_blank" rel="noopener">🧭 길찾기<br><small>현재 위치에서</small></a></div>
+      <div class="btnrow"><button class="btn onmap" data-onmap>🗺 앱 지도에서 보기 <small>· 주변 가게도 함께</small></button></div>
       <div class="btnrow"><button class="btn dark" data-fav>${fav.has(it.id) ? '❤️ 찜 해제' : '🤍 찜하기'}</button>
         <button class="btn gray" data-taxi>🚕 주소 크게 보기</button></div>
       ${rsvHTML(it)}
@@ -363,6 +364,7 @@
     if (e.target === $('#sheet') || e.target.closest('[data-x]')) { history.back(); return; }
     if (e.target.closest('[data-fav]')) { fav.has(id) ? fav.delete(id) : fav.add(id); LS.set('fav', [...fav]); openCard(id); history.back(); refresh(); }
     if (e.target.closest('[data-rsvedit]')) { rsvForm(id); return; }
+    if (e.target.closest('[data-onmap]')) { history.back(); setTimeout(() => showOnMap(id), 60); return; }
     if (e.target.closest('[data-taxi]')) { const it = BY_ID[id]; $('#taxi').innerHTML = `<div class="nm">${esc(it.zh)}</div><div class="big">${esc(it.addr)}</div><p>請帶我去這裡，謝謝！<br>(여기로 가 주세요)</p><button class="btn gray" style="max-width:240px">닫기</button>`; $('#taxi').classList.remove('hidden'); }
   });
   $('#taxi').addEventListener('click', e => { if (!e.target.closest('.rsvForm')) $('#taxi').classList.add('hidden'); });
@@ -387,7 +389,24 @@
   const POI_OFF = [{ featureType: 'poi.business', stylers: [{ visibility: 'off' }] }, { featureType: 'poi.attraction', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }];
   const E = { osm: { map: null, items: [], me: null }, google: { map: null, items: [], me: null, info: null } };
   let cur = 'osm', gLoading = false;
-  const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a></div>`;
+  const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br>${it.rating ? `⭐${it.rating} · ` : ''}${esc(it.cuisine || it.cat || '')}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a></div>`;
+  // 카드에서 [앱 지도에서 보기]: 그 가게를 가운데에 강조, 주변은 지금 필터(종류·영업 중만 등) 그대로 표시
+  let focusId = null;
+  function showOnMap(id) {
+    const it = BY_ID[id]; if (!it) return;
+    focusId = id;
+    if (qWords().length) { $('#q').value = ''; $('#q').classList.add('hidden'); }   // 검색 중이면 풀어서 주변 가게가 보이게
+    if (S.city !== '전체' && S.city !== it.city) { S.city = it.city; saveS(); $$('#citySeg button').forEach(x => x.classList.toggle('on', x.dataset.city === S.city)); }
+    showTab('map');
+    setTimeout(() => { setView(it.lat, it.lng, 16); openFocus(); }, 350);
+    toast(S.openOnly ? '주변의 영업 중인 가게도 함께 보여요 (‘영업 중만’ 끄면 전체)' : '주변 가게도 함께 보여요 (영업 여부 상관없이 전체)');
+  }
+  function openFocus() {
+    const mk = focusId && E[cur].byId && E[cur].byId[focusId]; if (!mk) return;
+    const it = BY_ID[focusId];
+    if (cur === 'google') { E.google.info.setContent(popupHTML(it, openInfo(it, twNow()))); E.google.info.open({ map: E.google.map, anchor: mk }); }
+    else mk.openPopup();
+  }
   // 지도 첫 중심: 내 위치(현지에 있을 때) → 고른 도시 숙소 → '전체'면 날짜에 맞는 도시(11/14 13시 전 타이난, 뒤 가오슝)
   function centerOf() {
     const p = tripPos();
@@ -500,17 +519,20 @@
     resizeMap();
     clearMarkers();
     const m = E[cur].map;
-    for (const x of filtered()) {
-      const it = x.it, on = x.oi.st === 'open' || x.oi.st === 'closing';
+    E[cur].byId = {};
+    const LL = filtered();
+    if (focusId && BY_ID[focusId] && !LL.some(x => x.it.id === focusId)) { const fi = BY_ID[focusId]; LL.push({ it: fi, oi: openInfo(fi, twNow()), d: 0 }); }
+    for (const x of LL) {
+      const it = x.it, on = x.oi.st === 'open' || x.oi.st === 'closing', fo = it.id === focusId;
       if (cur === 'google') {
-        const mk = new google.maps.Marker({ position: { lat: it.lat, lng: it.lng }, map: m, title: it.name, opacity: on ? 1 : 0.55,
-          label: { text: iconOf(it), fontSize: '13px' },
-          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 13, fillColor: COLOR[it.type], fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
+        const mk = new google.maps.Marker({ position: { lat: it.lat, lng: it.lng }, map: m, title: it.name, opacity: on || fo ? 1 : 0.55, zIndex: fo ? 1500 : undefined,
+          label: { text: iconOf(it), fontSize: fo ? '19px' : '13px' },
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: fo ? 20 : 13, fillColor: COLOR[it.type], fillOpacity: 1, strokeColor: fo ? '#f1c40f' : '#fff', strokeWeight: fo ? 4 : 2 } });
         mk.addListener('click', () => { E.google.info.setContent(popupHTML(it, x.oi)); E.google.info.open({ map: m, anchor: mk }); });
-        E.google.items.push(mk);
+        E.google.items.push(mk); E.google.byId[it.id] = mk;
       } else {
-        const mk = L.marker([it.lat, it.lng], { icon: L.divIcon({ className: '', html: `<div class="mk" style="background:${COLOR[it.type]};opacity:${on ? 1 : .55}">${iconOf(it)}</div>`, iconSize: [26, 26] }) });
-        mk.bindPopup(popupHTML(it, x.oi)); mk.addTo(m); E.osm.items.push(mk);
+        const mk = L.marker([it.lat, it.lng], { zIndexOffset: fo ? 1500 : 0, icon: L.divIcon({ className: '', html: `<div class="mk${fo ? ' focus' : ''}" style="background:${COLOR[it.type]};opacity:${on || fo ? 1 : .55}">${iconOf(it)}</div>`, iconSize: fo ? [40, 40] : [26, 26] }) });
+        mk.bindPopup(popupHTML(it, x.oi)); mk.addTo(m); E.osm.items.push(mk); E.osm.byId[it.id] = mk;
       }
     }
     drawMe();
@@ -666,14 +688,14 @@
     document.body.dataset.tab = t;
     $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
     $$('.tab').forEach(s => s.classList.toggle('on', s.id === 'tab-' + t));
-    if (t === 'near') renderList();
-    if (t === 'map') { renderMap(); }
+    if (t === 'near') { renderList(); focusId = null; }
+    if (t === 'map') { renderList(); renderMap(); }
     if (t === 'near' || t === 'map') getPos(false);
     if (t === 'info') loadInfo();
     if (t === 'set') updatePerm();
     window.scrollTo(0, 0);
   }
-  function refresh() { if (activeTab === 'near') renderList(); if (activeTab === 'map') renderMap(); }
+  function refresh() { if (activeTab === 'near' || activeTab === 'map') renderList(); if (activeTab === 'map') renderMap(); }
   $$('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $$('#citySeg button').forEach(b => { b.classList.toggle('on', b.dataset.city === S.city); b.addEventListener('click', () => { S.city = b.dataset.city; saveS(); $$('#citySeg button').forEach(x => x.classList.toggle('on', x === b)); refresh(); centerCity(); }); });
   $$('#typeChips button').forEach(b => { b.classList.toggle('on', b.dataset.t === S.type); b.addEventListener('click', () => { S.type = b.dataset.t; saveS(); $$('#typeChips button').forEach(x => x.classList.toggle('on', x === b)); subCur = null; window.scrollTo(0, 0); refresh(); }); });
@@ -733,7 +755,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261110f').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261111c').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 

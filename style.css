@@ -304,3 +304,10 @@ header .toprow .seg button { flex: 0 0 auto; white-space: nowrap; padding: 6px 9
 /* 큰 글씨: 대만 시계를 제목 아래 줄로 (도시 버튼 공간 확보) */
 html[data-big="1"] header .title { line-height: 1.15; }
 html[data-big="1"] header .title small { display: block; margin-left: 0; font-size: 10.5px; }
+
+/* 앱 지도에서 보기 */
+.btn.onmap { background: #e67e22; color: #fff; }
+.btn.onmap small { font-weight: 400; opacity: .9; }
+.mk.focus { width: 40px; height: 40px; border-radius: 20px; border: 4px solid #f1c40f; font-size: 20px; box-shadow: 0 0 0 4px rgba(241,196,15,.35), 0 2px 6px rgba(0,0,0,.5); }
+/* 지도 탭에서는 세부 종류 바로가기 버튼 숨김 (목록 이동용) */
+body[data-tab="map"] #subSel { display: none !important; }
