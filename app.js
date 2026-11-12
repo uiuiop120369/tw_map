@@ -324,9 +324,13 @@
       ${it.price ? `<div class="kv"><b>💰 가격대</b>${esc(it.price)}</div>` : ''}
       ${it.tips ? `<div class="kv"><b>💡 팁</b>${esc(it.tips)}</div>` : ''}
       <p class="hint">대만 가게는 부정기 휴무가 잦아요. 가기 전 [구글맵 열기]로 한 번 더 확인하세요.</p>`;
+    // 이미 열린 카드를 다시 그릴 때(찜·예약 저장 등)는 기록을 새로 쌓지 않고 바꾸기만 (뒤로가기 기록이 꼬여 다른 가게가 뜨던 문제 방지)
+    const wasOpen = !$('#sheet').classList.contains('hidden');
     $('#sheet').classList.remove('hidden');
     $('#sheet').dataset.id = id;
-    history.pushState({ card: id }, '', '#' + id);
+    if (wasOpen && history.state && history.state.card) history.replaceState({ card: id }, '', '#' + id);
+    else history.pushState({ card: id }, '', '#' + id);
+    $('#sheetIn').scrollTop = 0;
   }
   // 온라인 주문: 배달 앱(우버이츠·foodpanda) / 온라인 포장 주문 사이트 / LINE
   function orderHTML(it) {
@@ -366,24 +370,38 @@
       const u = $('#rsvU').value.trim(), w = $('#rsvW').value.trim();
       if (u && !/^https?:\/\//i.test(u)) return toast('링크는 https:// 로 시작해야 해요');
       myRsv[id] = { u, w }; LS.set('rsv', myRsv); fav.add(id); LS.set('fav', [...fav]);
-      $('#taxi').classList.add('hidden'); openCard(id); history.back(); refresh(); toast('🎫 예약을 저장했어요 (❤️ 찜에도 넣었어요)');
+      $('#taxi').classList.add('hidden'); keepScroll(() => openCard(id)); refresh(); toast('🎫 예약을 저장했어요 (❤️ 찜에도 넣었어요)');
     };
     const del = $('#taxi').querySelector('[data-rsvdel]');
-    if (del) del.onclick = () => { delete myRsv[id]; LS.set('rsv', myRsv); $('#taxi').classList.add('hidden'); openCard(id); history.back(); refresh(); toast('예약 기록을 지웠어요'); };
+    if (del) del.onclick = () => { delete myRsv[id]; LS.set('rsv', myRsv); $('#taxi').classList.add('hidden'); keepScroll(() => openCard(id)); refresh(); toast('예약 기록을 지웠어요'); };
     $('#taxi').querySelector('[data-rsvx]').onclick = () => $('#taxi').classList.add('hidden');
   }
   function closeCard() { $('#sheet').classList.add('hidden'); }
+  // 카드 닫기: 앱이 쌓은 기록이면 뒤로가기(휴대폰 뒤로 버튼과 같게), 아니면 그냥 닫고 주소의 #가게 표시만 지움
+  function closeViaBack() {
+    if (history.state && history.state.card) history.back();
+    else { closeCard(); history.replaceState(null, '', location.pathname + location.search); }
+  }
+  // 카드를 다시 그려도 보던 위치 유지
+  function keepScroll(fn) { const y = $('#sheetIn').scrollTop; fn(); $('#sheetIn').scrollTop = y; }
   $('#sheet').addEventListener('click', e => {
     const id = $('#sheet').dataset.id;
-    if (e.target === $('#sheet') || e.target.closest('[data-x]')) { history.back(); return; }
-    if (e.target.closest('[data-fav]')) { fav.has(id) ? fav.delete(id) : fav.add(id); LS.set('fav', [...fav]); openCard(id); history.back(); refresh(); }
+    if (e.target === $('#sheet') || e.target.closest('[data-x]')) { closeViaBack(); return; }
+    if (e.target.closest('[data-fav]')) { fav.has(id) ? fav.delete(id) : fav.add(id); LS.set('fav', [...fav]); keepScroll(() => openCard(id)); refresh(); toast(fav.has(id) ? '❤️ 찜했어요' : '찜을 해제했어요'); return; }
     if (e.target.closest('[data-rsvedit]')) { rsvForm(id); return; }
-    if (e.target.closest('[data-onmap]')) { history.back(); setTimeout(() => showOnMap(id), 60); return; }
+    if (e.target.closest('[data-onmap]')) { closeViaBack(); setTimeout(() => showOnMap(id), 60); return; }
     if (e.target.closest('[data-taxi]')) { const it = BY_ID[id]; $('#taxi').innerHTML = `<div class="nm">${esc(it.zh)}</div><div class="big">${esc(it.addr)}</div><p>請帶我去這裡，謝謝！<br>(여기로 가 주세요)</p><button class="btn gray" style="max-width:240px">닫기</button>`; $('#taxi').classList.remove('hidden'); }
   });
   $('#taxi').addEventListener('click', e => { if (!e.target.closest('.rsvForm')) $('#taxi').classList.add('hidden'); });
   window.addEventListener('popstate', () => { if (!$('#sheet').classList.contains('hidden')) closeCard(); });
-  window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (BY_ID[h] && $('#sheet').classList.contains('hidden')) openCard(h); });
+  // 주소에 #가게를 직접 넣어 들어온 경우만 카드를 염 (앱이 쌓은 기록으로 돌아올 때는 열지 않음 → 누르지 않은 가게가 뜨던 문제 방지)
+  window.addEventListener('hashchange', () => {
+    const h = location.hash.slice(1);
+    if (BY_ID[h] && $('#sheet').classList.contains('hidden') && !(history.state && history.state.card)) {
+      history.replaceState(null, '', location.pathname + location.search);   // 그 기록에서 #가게를 지워 나중에 다시 열리지 않게
+      openCard(h);
+    }
+  });
   document.addEventListener('click', e => {
     const hb = e.target.closest('[data-heart]');
     if (hb) {
@@ -739,7 +757,12 @@
 
   // ---------- 탭·컨트롤 ----------
   let activeTab = 'near';
+  // 근처 목록에서 다른 탭에 갔다 오면 보던 위치로 (그사이 도시·종류·필터·검색어 등이 바뀌었으면 맨 위부터)
+  let nearY = 0, nearSig = '';
+  const listSig = () => JSON.stringify([S.city, S.type, S.openOnly, S.sort, S.flt, $('#q').value.trim(), S.when]);
   function showTab(t) {
+    const from = activeTab;
+    if (from === 'near' && t !== 'near') { nearY = window.scrollY; nearSig = listSig(); }
     activeTab = t;
     document.body.dataset.tab = t;
     $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
@@ -749,7 +772,8 @@
     if (t === 'near' || t === 'map') getPos(false);
     if (t === 'info') loadInfo();
     if (t === 'set') updatePerm();
-    window.scrollTo(0, 0);
+    if (t === 'near' && from !== 'near' && nearY && listSig() === nearSig) { const y = nearY; window.scrollTo(0, y); requestAnimationFrame(() => window.scrollTo(0, y)); }
+    else window.scrollTo(0, 0);   // 근처에서 근처 버튼을 또 누르면 맨 위로
   }
   function refresh() { if (activeTab === 'near' || activeTab === 'map') renderList(); if (activeTab === 'map') renderMap(); }
   $$('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
@@ -811,7 +835,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=202611122211').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=202611122308').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
@@ -857,6 +881,7 @@
     updatePerm();
   })();
   if (S.wakeOn) setWake(true);
-  const h = location.hash.slice(1); if (BY_ID[h]) openCard(h);
+  // 처음 열 때 주소에 #가게가 있으면: 주소에서 지우고 카드를 열어, 닫았을 때 다시 열리지 않게
+  const h = location.hash.slice(1); if (h) history.replaceState(null, '', location.pathname + location.search); if (BY_ID[h]) openCard(h);
   const qt = new URLSearchParams(location.search).get('tab'); if (qt) showTab(qt);
 })();

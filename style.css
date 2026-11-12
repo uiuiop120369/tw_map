@@ -335,3 +335,7 @@ body:not([data-tab="map"]) .routebar { display: none; }
 .btn.ord.app { background: #06c167; } .btn.ord.line { background: #00b900; } .btn.ord.web { background: #e67e22; }
 .ordok { display: inline-block; font-size: 11.5px; background: #e8f8ef; color: #0a7a3e; border-radius: 8px; padding: 1px 6px; }
 .btn.ord.gm { background: #1a73e8; }
+/* 카드 높이: 주소창이 내려와 있어도 위쪽이 가려지지 않게 "지금 보이는 화면" 기준(dvh) — 지원 안 하는 브라우저는 앞의 vh 값 사용 */
+.sheet-in { max-height: calc(100vh - 80px); max-height: calc(100dvh - 48px); }
+@media (min-width: 700px) { .sheet-in { max-height: 86vh; max-height: 86dvh; } }
+.submenu .subbox { max-height: 75vh; max-height: 75dvh; }
