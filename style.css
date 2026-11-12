@@ -311,3 +311,27 @@ html[data-big="1"] header .title small { display: block; margin-left: 0; font-si
 .mk.focus { width: 40px; height: 40px; border-radius: 20px; border: 4px solid #f1c40f; font-size: 20px; box-shadow: 0 0 0 4px rgba(241,196,15,.35), 0 2px 6px rgba(0,0,0,.5); }
 /* 지도 탭에서는 세부 종류 바로가기 버튼 숨김 (목록 이동용) */
 body[data-tab="map"] #subSel { display: none !important; }
+
+/* 두 가게 사이 길찾기 */
+.rtb { margin-top: 6px; padding-top: 6px; border-top: 1px solid #eee; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.rtb button { border: 1px solid #ccc; background: #fff; border-radius: 14px; padding: 5px 10px; font-size: 13px; }
+.rtb button.go { background: #1a73e8; color: #fff; border-color: #1a73e8; font-weight: 700; }
+.rtb small { color: #777; font-size: 11.5px; width: 100%; }
+.rtb .rtnow { color: #c0392b; font-weight: 700; font-size: 13px; }
+.routebar { position: fixed; left: 10px; right: 68px; bottom: calc(64px + 10px + env(safe-area-inset-bottom)); z-index: 520; background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.3); padding: 10px 40px 10px 12px; font-size: 14px; line-height: 1.45; }
+.routebar.hidden { display: none; }
+.routebar small { color: #555; } .routebar i { color: #999; font-style: normal; font-size: 11px; }
+.routebar .rtl { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.routebar .rtl a { background: #1a73e8; color: #fff; text-decoration: none; border-radius: 14px; padding: 6px 10px; font-size: 13px; font-weight: 700; }
+.routebar .rx { position: absolute; top: 6px; right: 6px; border: 0; background: #eee; width: 28px; height: 28px; border-radius: 14px; font-size: 14px; }
+body:not([data-tab="map"]) .routebar { display: none; }
+.mk.start { border-color: #27ae60 !important; box-shadow: 0 0 0 4px rgba(39,174,96,.4), 0 2px 6px rgba(0,0,0,.5); }
+@media (min-width: 700px) { .routebar { right: auto; width: 420px; } }
+
+/* 온라인 주문 */
+.ordBox { background: #fff8e6; border: 1px solid #f5d38a; border-radius: 10px; padding: 10px; margin: 8px 0; font-size: 14px; }
+.ordBtns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.btn.ord { flex: 1 1 140px; background: #e67e22; color: #fff; }
+.btn.ord.app { background: #06c167; } .btn.ord.line { background: #00b900; } .btn.ord.web { background: #e67e22; }
+.ordok { display: inline-block; font-size: 11.5px; background: #e8f8ef; color: #0a7a3e; border-radius: 8px; padding: 1px 6px; }
+.btn.ord.gm { background: #1a73e8; }

@@ -136,13 +136,14 @@
   function qWords() { return ($('#q').value || '').trim().split(/\s+/).map(normQ).filter(Boolean); }
   // ---------- 정렬 · 배지 필터 ----------
   const SORTS = { dist: ['📍', '가까운 순'], reviews: ['💬', '리뷰 많은 순'], rating: ['⭐', '별점 높은 순'] };
-  const FLTS = { rsv: ['📅', '온라인 예약 가능'], sel: ['🍽', '미쉐린 (셀렉티드)'], bib: ['🏅', '빕구르망'], infl: ['📸', '인플루언서 추천'], fc: ['📖', '타이난 맛집 가이드'] };
-  const hasF = (it, k) => k === 'rsv' ? !!it.rsv : k === 'sel' ? it.mic === 'sel' : k === 'bib' ? it.mic === 'bib' : !!it[k];
+  const FLTS = { rsv: ['📅', '온라인 예약 가능'], ord: ['🛵', '온라인 주문 (배달·포장)'], sel: ['🍽', '미쉐린 (셀렉티드)'], bib: ['🏅', '빕구르망'], infl: ['📸', '인플루언서 추천'], fc: ['📖', '타이난 맛집 가이드'] };
+  const hasF = (it, k) => k === 'rsv' ? !!it.rsv : k === 'ord' ? !!it.order : k === 'sel' ? it.mic === 'sel' : k === 'bib' ? it.mic === 'bib' : !!it[k];
   // 예약 가능은 '그리고', 추천 배지끼리는 '또는' (예: 빕구르망 또는 인플루언서)
   function fltMatch(it) {
     const f = S.flt || [];
     if (f.includes('rsv') && !it.rsv) return false;
-    const b = f.filter(k => k !== 'rsv');
+    if (f.includes('ord') && !it.order) return false;
+    const b = f.filter(k => k !== 'rsv' && k !== 'ord');
     return !b.length || b.some(k => hasF(it, k));
   }
   // 별점 순: 리뷰가 너무 적은(100개 미만) 곳은 별점이 높아도 뒤로
@@ -178,7 +179,7 @@
     const base = filtered(true);
     $('#sortMenu .subbox').innerHTML = `<div class="subhd">⇅ 정렬 <small>(종류별 묶음 안에서 적용)</small></div>`
       + Object.entries(SORTS).map(([k, [ic, nm]]) => `<button data-sortk="${k}" class="${S.sort === k ? 'on' : ''}"><span>${ic} ${nm}</span><b>${S.sort === k ? '✓' : ''}</b></button>`).join('')
-      + `<div class="subhd" style="margin-top:14px">🔎 필터 <small>(여러 개 고르면: 예약 가능 + 추천 배지 중 하나라도)</small></div>`
+      + `<div class="subhd" style="margin-top:14px">🔎 필터 <small>(예약·주문은 꼭 되는 곳만, 추천 배지는 하나라도 해당)</small></div>`
       + Object.entries(FLTS).map(([k, [ic, nm]]) => { const c = base.filter(x => hasF(x.it, k)).length; return `<button data-fltk="${k}" class="${(S.flt || []).includes(k) ? 'on' : ''}"><span>${(S.flt || []).includes(k) ? '☑' : '☐'} ${ic} ${nm}</span><b>${c}곳</b></button>`; }).join('')
       + `<div class="sortfoot"><button class="subclose" data-sortreset>처음대로 (가까운 순·필터 없음)</button><button class="subclose ok" data-sortclose>닫기</button></div>`;
   }
@@ -192,7 +193,7 @@
     return `<div class="item" data-id="${it.id}"><div class="ic">${iconOf(it)}</div>
       <div class="tx"><div class="nm">${esc(it.name)} ${src}${it.infl ? ' <span class="infl">📸</span>' : ''}${it.caution ? ' <span class="cau">⚠</span>' : ''}</div>
       <div class="sub">${rate ? rate + ' · ' : ''}${esc(it.cuisine || it.cat)} · ${esc(it.city)}</div>
-      <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span>${myRsv[it.id] ? ` <span class="rsvd">🎫 예약 ${esc(myRsv[it.id].w || '')}</span>` : (it.rsv ? ' <span class="rsvok">📅 예약</span>' : '')}</div></div>
+      <div><span class="st ${x.oi.st}">${esc(x.oi.txt)}</span>${myRsv[it.id] ? ` <span class="rsvd">🎫 예약 ${esc(myRsv[it.id].w || '')}</span>` : (it.rsv ? ' <span class="rsvok">📅 예약</span>' : '')}${it.order ? ' <span class="ordok">🛵 주문</span>' : ''}</div></div>
       <div class="rt"><button class="heart" data-heart="${it.id}" aria-label="찜">${fav.has(it.id) ? '❤️' : '🤍'}</button><div class="dist">${fmtD(x.d)}</div></div></div>`;
   }
   // 거리 기준 안내: [짧은 문구, 눌렀을 때 설명]
@@ -309,6 +310,7 @@
       <div class="btnrow"><button class="btn dark" data-fav>${fav.has(it.id) ? '❤️ 찜 해제' : '🤍 찜하기'}</button>
         <button class="btn gray" data-taxi>🚕 주소 크게 보기</button></div>
       ${rsvHTML(it)}
+      ${orderHTML(it)}
       ${it.fc ? `<div class="fcBox">📖 <b>타이난 맛집 가이드 (Fucheng Table)</b><br>${esc(it.fc)}</div>` : ''}
       ${it.infl ? `<div class="inflBox">📸 <b>인플루언서 추천</b><br>${esc(it.infl)}</div>` : ''}
       ${it.caution ? `<div class="cauBox">⚠ <b>카페 후기 호불호</b><br>${esc(it.caution)}</div>` : ''}
@@ -325,6 +327,18 @@
     $('#sheet').classList.remove('hidden');
     $('#sheet').dataset.id = id;
     history.pushState({ card: id }, '', '#' + id);
+  }
+  // 온라인 주문: 배달 앱(우버이츠·foodpanda) / 온라인 포장 주문 사이트 / LINE
+  function orderHTML(it) {
+    if (!it.order) return '';
+    const btn = ([nm, u, t, p, d]) => {
+      // 업체 목록을 못 받은 곳: 구글맵 가게 화면의 [온라인 주문]에서 업체 확인
+      if (t === 'gm') return `<a class="btn ord gm" href="${esc(it.map)}" target="_blank" rel="noopener">🛵 ${esc(nm)}<br><small>구글맵 화면의 [온라인 주문]을 누르세요</small></a>`;
+      const sub = t === 'app' ? [d ? '배달' : '', p ? '포장' : ''].filter(Boolean).join('·') : (t === 'line' ? 'LINE으로 주문' : '포장 주문 (직접 받으러 가기)');
+      return `<a class="btn ord ${t}" href="${esc(u)}" target="_blank" rel="noopener">${t === 'app' ? '🛵' : t === 'line' ? '💬' : '🥡'} ${esc(nm)}<br><small>${esc(sub)}</small></a>`;
+    };
+    return `<div class="ordBox"><b>🛵 온라인 주문</b> <small>(구글맵 기준)</small><div class="ordBtns">${it.order.map(btn).join('')}</div>
+      <p class="hint">· 배달 앱은 앱 설치·가입이 필요해요(우버이츠는 한국 우버 계정 그대로 사용 가능). 호텔 배달은 보통 <b>1층 로비</b>에서 받아요.<br>· 포장 주문 사이트·LINE은 중국어이고, 대만 휴대폰 번호를 요구할 수 있어요.</p></div>`;
   }
   function rsvHTML(it) {
     const m = myRsv[it.id];
@@ -389,7 +403,49 @@
   const POI_OFF = [{ featureType: 'poi.business', stylers: [{ visibility: 'off' }] }, { featureType: 'poi.attraction', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }];
   const E = { osm: { map: null, items: [], me: null }, google: { map: null, items: [], me: null, info: null } };
   let cur = 'osm', gLoading = false;
-  const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br>${it.rating ? `⭐${it.rating} · ` : ''}${esc(it.cuisine || it.cat || '')}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a></div>`;
+  const popupHTML = (it, oi) => `<div style="min-width:170px"><b>${esc(it.name)}</b><br>${esc(it.zh)}<br>${it.rating ? `⭐${it.rating} · ` : ''}${esc(it.cuisine || it.cat || '')}<br><span class="st ${oi.st}">${esc(oi.txt)}</span><br><a href="#" data-open="${it.id}">자세히 보기 ›</a>${routeBtns(it)}</div>`;
+  // ---------- 두 가게 사이 길찾기 (구글 API 안 씀: 앱 지도엔 점선·직선거리, 실제 길은 구글맵 앱으로) ----------
+  let startId = null, routeId = null;
+  function routeBtns(it) {
+    if (!startId) return `<div class="rtb"><button data-rstart="${it.id}">🚩 여기를 출발지로</button></div>`;
+    if (startId === it.id) return `<div class="rtb"><span class="rtnow">🚩 출발지예요</span> <button data-rclear>해제</button></div>`;
+    return `<div class="rtb"><button class="go" data-rto="${it.id}">➡ 여기까지 길찾기</button><small>출발: ${esc(BY_ID[startId].name)}</small><button data-rstart="${it.id}">🚩 출발지 바꾸기</button></div>`;
+  }
+  function placeQ(it, k) { return `&${k}=` + encodeURIComponent(it.zh || it.name) + (it.pid ? `&${k}_place_id=` + it.pid : ''); }
+  function routeUrl(a, b, mode) { return 'https://www.google.com/maps/dir/?api=1' + placeQ(a, 'origin') + placeQ(b, 'destination') + '&travelmode=' + mode; }
+  function routeBar() {
+    const bar = $('#routeBar');
+    if (!startId) { bar.classList.add('hidden'); return; }
+    const a = BY_ID[startId];
+    if (!routeId) { bar.innerHTML = `<div class="rtx">🚩 출발: <b>${esc(a.name)}</b><br><small>다른 가게 핀을 누르고 [➡ 여기까지 길찾기]</small></div><button class="rx" data-rclear>✕</button>`; bar.classList.remove('hidden'); return; }
+    const b = BY_ID[routeId], d = km(a, b), walk = Math.round(d * 1.35 * 1000 / 75), taxi = Math.round(d * 1.3 / (d < 4 ? 22 : d < 10 ? 28 : 40) * 60 + 3);
+    bar.innerHTML = `<div class="rtx">🚩 ${esc(a.name)} → 🏁 <b>${esc(b.name)}</b><br><small>직선 ${fmtD(d)} · ${d <= 1.5 ? `걸어서 약 ${walk}분` : `택시 약 ${taxi}분 (걸으면 ${walk}분)`} <i>(실제 길은 조금 더 멀 수 있어요)</i></small>
+      <div class="rtl"><a href="${routeUrl(a, b, 'walking')}" target="_blank" rel="noopener">🚶 걷기 길찾기</a><a href="${routeUrl(a, b, 'transit')}" target="_blank" rel="noopener">🚇 대중교통</a><a href="${routeUrl(a, b, 'driving')}" target="_blank" rel="noopener">🚕 차</a></div></div><button class="rx" data-rclear>✕</button>`;
+    bar.classList.remove('hidden');
+  }
+  function drawRoute() {
+    for (const k of ['osm', 'google']) { if (E[k].route) { k === 'google' ? E[k].route.setMap(null) : E[k].route.remove(); E[k].route = null; } }
+    if (!startId || !routeId || !E[cur].map) return;
+    const a = BY_ID[startId], b = BY_ID[routeId];
+    if (cur === 'google') E.google.route = new google.maps.Polyline({ map: E.google.map, path: [{ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }], strokeOpacity: 0, icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, strokeColor: '#1a73e8', scale: 4 }, offset: '0', repeat: '16px' }] });
+    else E.osm.route = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], { color: '#1a73e8', weight: 5, dashArray: '8 10', opacity: .9 }).addTo(E.osm.map);
+  }
+  function fitRoute() {
+    const a = BY_ID[startId], b = BY_ID[routeId], m = E[cur].map; if (!m) return;
+    if (cur === 'google') { const bb = new google.maps.LatLngBounds(); bb.extend({ lat: a.lat, lng: a.lng }); bb.extend({ lat: b.lat, lng: b.lng }); m.fitBounds(bb, { top: 70, left: 50, right: 70, bottom: 230 }); }
+    else m.fitBounds([[a.lat, a.lng], [b.lat, b.lng]], { paddingTopLeft: [50, 70], paddingBottomRight: [70, 230], maxZoom: 17 });
+  }
+  document.addEventListener('click', e => {
+    const st = e.target.closest('[data-rstart]'), to = e.target.closest('[data-rto]'), cl = e.target.closest('[data-rclear]');
+    if (!st && !to && !cl) return;
+    e.preventDefault();
+    if (st) { startId = st.dataset.rstart; routeId = null; toast('🚩 출발지로 정했어요. 이제 다른 가게 핀을 누르고 [➡ 여기까지 길찾기]'); }
+    if (to) { routeId = to.dataset.rto; }
+    if (cl) { startId = null; routeId = null; }
+    if (cur === 'google' && E.google.info) E.google.info.close(); else if (E.osm.map) E.osm.map.closePopup();
+    renderMap(); routeBar();
+    if (to) fitRoute();
+  });
   // 카드에서 [앱 지도에서 보기]: 그 가게를 가운데에 강조, 주변은 지금 필터(종류·영업 중만 등) 그대로 표시
   let focusId = null;
   function showOnMap(id) {
@@ -521,21 +577,21 @@
     const m = E[cur].map;
     E[cur].byId = {};
     const LL = filtered();
-    if (focusId && BY_ID[focusId] && !LL.some(x => x.it.id === focusId)) { const fi = BY_ID[focusId]; LL.push({ it: fi, oi: openInfo(fi, twNow()), d: 0 }); }
+    for (const fid of [focusId, startId, routeId]) if (fid && BY_ID[fid] && !LL.some(x => x.it.id === fid)) { const fi = BY_ID[fid]; LL.push({ it: fi, oi: openInfo(fi, twNow()), d: 0 }); }
     for (const x of LL) {
-      const it = x.it, on = x.oi.st === 'open' || x.oi.st === 'closing', fo = it.id === focusId;
+      const it = x.it, on = x.oi.st === 'open' || x.oi.st === 'closing', fo = it.id === focusId || it.id === startId || it.id === routeId;
       if (cur === 'google') {
         const mk = new google.maps.Marker({ position: { lat: it.lat, lng: it.lng }, map: m, title: it.name, opacity: on || fo ? 1 : 0.55, zIndex: fo ? 1500 : undefined,
-          label: { text: iconOf(it), fontSize: fo ? '19px' : '13px' },
+          label: { text: it.id === startId ? '🚩' : iconOf(it), fontSize: fo ? '19px' : '13px' },
           icon: { path: google.maps.SymbolPath.CIRCLE, scale: fo ? 20 : 13, fillColor: COLOR[it.type], fillOpacity: 1, strokeColor: fo ? '#f1c40f' : '#fff', strokeWeight: fo ? 4 : 2 } });
         mk.addListener('click', () => { E.google.info.setContent(popupHTML(it, x.oi)); E.google.info.open({ map: m, anchor: mk }); });
         E.google.items.push(mk); E.google.byId[it.id] = mk;
       } else {
-        const mk = L.marker([it.lat, it.lng], { zIndexOffset: fo ? 1500 : 0, icon: L.divIcon({ className: '', html: `<div class="mk${fo ? ' focus' : ''}" style="background:${COLOR[it.type]};opacity:${on || fo ? 1 : .55}">${iconOf(it)}</div>`, iconSize: fo ? [40, 40] : [26, 26] }) });
-        mk.bindPopup(popupHTML(it, x.oi)); mk.addTo(m); E.osm.items.push(mk); E.osm.byId[it.id] = mk;
+        const mk = L.marker([it.lat, it.lng], { zIndexOffset: fo ? 1500 : 0, icon: L.divIcon({ className: '', html: `<div class="mk${fo ? ' focus' : ''}${it.id === startId ? ' start' : ''}" style="background:${COLOR[it.type]};opacity:${on || fo ? 1 : .55}">${iconOf(it)}</div>`, iconSize: fo ? [40, 40] : [26, 26] }) });
+        mk.bindPopup(() => popupHTML(it, x.oi)); mk.addTo(m); E.osm.items.push(mk); E.osm.byId[it.id] = mk;
       }
     }
-    drawMe();
+    drawMe(); drawRoute();
   }
   function drawMe() {
     if (!myPos) return;
@@ -755,7 +811,7 @@
   let infoLoaded = false;
   function loadInfo() {
     if (infoLoaded) return;
-    fetch('info.html?v=20261111c').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
+    fetch('info.html?v=20261112e').then(r => r.text()).then(h => { $('#info').innerHTML = h; infoLoaded = true; })
       .catch(() => { $('#info').innerHTML = '정보를 불러오지 못했어요. 인터넷 연결 후 다시 열어 주세요.'; });
   }
 
